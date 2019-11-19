@@ -17,12 +17,7 @@ def showCounts(testCase):
     ):
         print('{} █{}█'.format(
             count,
-            re.escape(
-                ''.join(substring)
-            ).replace(
-                r'\ ',
-                r'[\s\n]+'
-            )
+            ''.join(substring)
         ))
 
 if __name__ == '__main__':

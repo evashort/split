@@ -23,8 +23,6 @@ def tokenize(text):
 
         if tokenType == oldTokenType == 'space':
             tokenLength += 1
-        elif oldTokenType == 'space':
-            yield ' '
 
         if tokenType == 'other':
             yield letter
@@ -34,8 +32,6 @@ def tokenize(text):
 
     if tokenType == 'word':
         yield text[-tokenLength:].lower()
-    elif tokenType == 'space':
-        yield ' '
 
 if __name__ == '__main__':
     print(list(tokenize('a,~  1bA  \tC')))
