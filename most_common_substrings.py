@@ -1,7 +1,6 @@
 from suffix_tree import makeSuffixTree
 
 def getSubstringCounts(text):
-    global root
     root = makeTreeWithStopSets(text)
     substringCounts = {}
     seenStopSets = set()
