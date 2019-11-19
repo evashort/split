@@ -46,21 +46,26 @@ class Node:
         ])
 
 def makeSuffixTree(text):
-    root = Node('')
+    root = Node(text[:0])
     path = Path(root)
     for i in range(len(text) + 1):
         suffix = text[i:]
         lastNewNode = None
         while True:
             try:
-                path.append(suffix[:1])
+                firstLetter = suffix[0]
+            except IndexError:
+                firstLetter = None
+
+            try:
+                path.append(firstLetter)
             except KeyError:
                 pass
             else:
                 break
 
             newNode = path.fork()
-            newNode[suffix[:1]] = Node(suffix)
+            newNode[firstLetter] = Node(suffix)
             if lastNewNode is not None:
                 lastNewNode.popCache = newNode
 

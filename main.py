@@ -1,15 +1,15 @@
 from contextlib import redirect_stdout
 from most_common_substrings import getSubstringCounts
 from pathlib import Path
+from preprocessor import preprocess
 import re
 
 def showCounts(testCase):
     with open(Path('testcases') / testCase) as f:
         text = f.read()
 
-    text = re.sub(r'\s+', ' ', text)
-
-    substringCounts = getSubstringCounts(text)
+    tokens = preprocess(text)
+    substringCounts = getSubstringCounts(tokens)
     for substring, count in sorted(
         substringCounts.items(),
         key=lambda item: item[1] * len(item[0]),

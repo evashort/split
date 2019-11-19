@@ -11,7 +11,7 @@ def getSubstringCountsHelp(node, seenStopSets, substringCounts, prefix):
     for child in node.children.values():
         if child.children and child.stops not in seenStopSets:
             seenStopSets.add(child.stops)
-            substring = prefix + child.text
+            substring = prefix + ''.join(child.text)
             substringCounts[substring] = len(child.stops)
             getSubstringCountsHelp(
                 child,
