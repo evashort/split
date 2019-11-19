@@ -15,7 +15,15 @@ def showCounts(testCase):
         key=lambda item: item[1] * len(item[0]),
         reverse=True
     ):
-        print('{} █{}█'.format(count, re.escape(substring).replace(r'\ ', r'[\s\n]+')))
+        print('{} █{}█'.format(
+            count,
+            re.escape(
+                ''.join(substring)
+            ).replace(
+                r'\ ',
+                r'[\s\n]+'
+            )
+        ))
 
 if __name__ == '__main__':
     with open('counts.txt', 'w', encoding='utf-8') as f:

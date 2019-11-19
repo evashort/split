@@ -4,14 +4,14 @@ def getSubstringCounts(text):
     root = makeTreeWithStopSets(text)
     substringCounts = {}
     seenStopSets = set()
-    getSubstringCountsHelp(root, seenStopSets, substringCounts, '')
+    getSubstringCountsHelp(root, seenStopSets, substringCounts, ())
     return substringCounts
 
 def getSubstringCountsHelp(node, seenStopSets, substringCounts, prefix):
     for child in node.children.values():
         if child.children and child.stops not in seenStopSets:
             seenStopSets.add(child.stops)
-            substring = prefix + ''.join(child.text)
+            substring = prefix + tuple(child.text)
             substringCounts[substring] = len(child.stops)
             getSubstringCountsHelp(
                 child,
