@@ -11,7 +11,7 @@ def showCounts(testCase):
     tokens = preprocess(text)
     substringCounts = getSubstringCounts(tokens)
     for substring, count in sorted(
-        substringCounts.items(),
+        substringCounts,
         key=lambda item: item[1] * len(item[0]),
         reverse=True
     ):

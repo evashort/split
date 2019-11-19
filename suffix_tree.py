@@ -15,6 +15,9 @@ class Node:
         self.children = {}
         self.popCache = None # suffix link
 
+    def setStops(self, stops):
+        self.stops = stops
+
     def __getitem__(self, branch):
         return self.children[branch]
 
@@ -32,9 +35,7 @@ class Node:
                         ('cache' if child.popCache is not None else ''),
                         ('...' if child.children else '')
                     ) \
-                        for branch, child in sorted(
-                            self.children.items()
-                        )
+                        for branch, child in self.children.items()
                 ),
                 '\n' if self.children else ''
             ),

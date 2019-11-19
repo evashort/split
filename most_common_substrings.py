@@ -1,23 +1,33 @@
+import heapq
 from suffix_tree import makeSuffixTree
 
 def getSubstringCounts(text):
     root = makeTreeWithStopSets(text)
-    substringCounts = {}
     seenStopSets = set()
-    getSubstringCountsHelp(root, seenStopSets, substringCounts, ())
-    return substringCounts
+    fringe = [(-len(root.stops), -0, id(root), root)]
+    while fringe:
+        count, length, _, node = heapq.heappop(fringe)
+        count, length = -count, -length
+        if count < 2:
+            break
 
-def getSubstringCountsHelp(node, seenStopSets, substringCounts, prefix):
-    for child in node.children.values():
-        if child.children and child.stops not in seenStopSets:
-            seenStopSets.add(child.stops)
-            substring = prefix + tuple(child.text)
-            substringCounts[substring] = len(child.stops)
-            getSubstringCountsHelp(
-                child,
-                seenStopSets,
-                substringCounts,
-                substring
+        if node.stops in seenStopSets:
+            continue
+
+        stop = next(iter(node.stops))
+        path = text[stop - length : stop]
+        yield path, count
+
+        seenStopSets.add(node.stops)
+        for child in node.children.values():
+            heapq.heappush(
+                fringe,
+                (
+                    -len(child.stops),
+                    -(length + len(child.text)),
+                    id(child),
+                    child
+                )
             )
 
 def makeTreeWithStopSets(text):
@@ -57,8 +67,5 @@ if __name__ == '__main__':
     substringCounts = getSubstringCounts(
         '{1: 2, 1: 2, 2: 6}'
     )
-    for substring, count in sorted(
-        substringCounts.items(),
-        key=lambda item: item[1]
-    ):
+    for substring, count in substringCounts:
         print('{} █{}█'.format(count, substring))
