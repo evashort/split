@@ -14,8 +14,9 @@ def getMatchingSlices(text):
         if node.stops in seenStopSets:
             continue
 
-        yield sorted(
-            (stop - length, stop) for stop in node.stops
+        yield (
+            sorted((stop - length) for stop in node.stops),
+            length
         )
 
         seenStopSets.add(node.stops)
@@ -66,7 +67,7 @@ def depthFirst(node, bottomUp=False, sort=False, key=None, reverse=False):
 if __name__ == '__main__':
     text = '{1: 2, 1: 2, 2: 6}'
     sliceSets = getMatchingSlices(text)
-    for sliceSet in sliceSets:
-        (start, stop), *_ = sliceSet
-        substring = text[start:stop]
-        print('{} █{}█'.format(len(sliceSet), substring))
+    for starts, length in sliceSets:
+        start = starts[0]
+        substring = text[start:start + length]
+        print('{} █{}█'.format(len(starts), substring))
