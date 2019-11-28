@@ -1,7 +1,7 @@
 import heapq
 from suffix_tree import makeSuffixTree
 
-def getSubstringCounts(text):
+def getMatchingSlices(text):
     root = makeTreeWithStopSets(text)
     seenStopSets = set()
     fringe = [(-len(root.stops), -0, id(root), root)]
@@ -14,9 +14,9 @@ def getSubstringCounts(text):
         if node.stops in seenStopSets:
             continue
 
-        stop = next(iter(node.stops))
-        path = text[stop - length : stop]
-        yield path, count
+        yield sorted(
+            (stop - length, stop) for stop in node.stops
+        )
 
         seenStopSets.add(node.stops)
         for child in node.children.values():
@@ -64,8 +64,9 @@ def depthFirst(node, bottomUp=False, sort=False, key=None, reverse=False):
         yield node
 
 if __name__ == '__main__':
-    substringCounts = getSubstringCounts(
-        '{1: 2, 1: 2, 2: 6}'
-    )
-    for substring, count in substringCounts:
-        print('{} █{}█'.format(count, substring))
+    text = '{1: 2, 1: 2, 2: 6}'
+    sliceSets = getMatchingSlices(text)
+    for sliceSet in sliceSets:
+        (start, stop), *_ = sliceSet
+        substring = text[start:stop]
+        print('{} █{}█'.format(len(sliceSet), substring))
