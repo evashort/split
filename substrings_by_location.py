@@ -13,6 +13,10 @@ class SubstringsByLocation:
         )
 
     def idsInInterval(self, start, stop):
+        '''
+        returns (id, location) pairs for substrings
+        of the string text[start:stop]
+        '''
         startIndex = bisect.bisect_left(self.startIDs, (start,))
         stopIndex = bisect.bisect_left(self.startIDs, (stop,))
         return (
