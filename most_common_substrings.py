@@ -69,5 +69,5 @@ if __name__ == '__main__':
     sliceSets = getMatchingSlices(text)
     for starts, length in sliceSets:
         start = starts[0]
-        substring = text[start:start + length]
+        substring = text[start : start + length]
         print('{} █{}█'.format(len(starts), substring))
