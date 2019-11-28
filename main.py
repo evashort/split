@@ -9,15 +9,17 @@ def showCounts(testCase):
         text = f.read()
 
     tokens = preprocess(text)
-    substringCounts = getSubstringCounts(tokens)
-    for substring, count in sorted(
-        substringCounts,
-        key=lambda item: item[1] * len(item[0]),
+    sliceSets = getMatchingSlices(tokens)
+    for sliceSet in sorted(
+        sliceSets,
+        key=lambda slices: \
+            len(slices) * (slices[0][1] - slices[0][0]),
         reverse=True
     ):
+        (start, stop), *_ = sliceSet
         print('{} █{}█'.format(
-            count,
-            ''.join(substring)
+            len(sliceSet),
+            ''.join(tokens[start:stop])
         ))
 
 if __name__ == '__main__':
