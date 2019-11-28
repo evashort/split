@@ -3,14 +3,17 @@ import bisect
 class SubstringsByLocation:
     def __init__(self, substrings):
         '''
-        substrings: a list of (starts, length) pairs
+        substrings: iterable of (starts, length) pairs
         '''
-        self.substrings = substrings
-        self.startIDs = sorted(
-            (start, i) \
-                for i, (starts, _) in enumerate(self.substrings) \
-                    for start in starts
-        )
+        self.lengths = []
+        self.startIDs = []
+        for i, (starts, length) in enumerate(substrings):
+            self.lengths.append(length)
+            self.startIDs.extend(
+                (start, i) for start in starts
+            )
+
+        self.startIDs.sort()
 
     def idsInInterval(self, start, stop):
         '''
@@ -22,7 +25,7 @@ class SubstringsByLocation:
         return (
             (i, start) \
                 for start, i in self.startIDs[startIndex:stopIndex] \
-                    if self.substrings[i][1] <= stopIndex - i
+                    if self.lengths[i] <= stopIndex - i
         )
 
 if __name__ == '__main__':
