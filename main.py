@@ -10,16 +10,15 @@ def showCounts(testCase):
 
     tokens = preprocess(text)
     sliceSets = getMatchingSlices(tokens)
-    for sliceSet in sorted(
+    for starts, length in sorted(
         sliceSets,
-        key=lambda slices: \
-            len(slices) * (slices[0][1] - slices[0][0]),
+        key=lambda item: len(item[0]) * item[1],
         reverse=True
     ):
-        (start, stop), *_ = sliceSet
+        start = starts[0]
         print('{} █{}█'.format(
-            len(sliceSet),
-            ''.join(tokens[start:stop])
+            len(starts),
+            ''.join(tokens[start : start + length])
         ))
 
 if __name__ == '__main__':
