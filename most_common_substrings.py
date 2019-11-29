@@ -1,10 +1,21 @@
 import heapq
 from suffix_tree import makeSuffixTree
 
-def getMatchingSlices(text):
-    root = makeTreeWithStopSets(text)
+def getMatchingSlices(treeWithStopSets):
     seenStopSets = set()
-    fringe = [(-len(root.stops), -0, id(root), root)]
+    # store count and length as negative
+    #   to process largest first
+    # store address of node before the node itself,
+    #   otherwise if two substrings have the same count and length,
+    #   we try to compare node objects and get an error
+    fringe = [
+        (
+            -len(treeWithStopSets.stops),
+            -0,
+            id(treeWithStopSets),
+            treeWithStopSets
+        )
+    ]
     while fringe:
         count, length, _, node = heapq.heappop(fringe)
         count, length = -count, -length
@@ -66,7 +77,8 @@ def depthFirst(node, bottomUp=False, sort=False, key=None, reverse=False):
 
 if __name__ == '__main__':
     text = '{1: 2, 1: 2, 2: 6}'
-    sliceSets = getMatchingSlices(text)
+    tree = makeTreeWithStopSets(text)
+    sliceSets = getMatchingSlices(tree)
     for starts, length in sliceSets:
         start = starts[0]
         substring = text[start : start + length]
