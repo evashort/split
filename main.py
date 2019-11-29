@@ -1,5 +1,6 @@
 from contextlib import redirect_stdout
-from most_common_substrings import getSubstringCounts
+from most_common_substrings import \
+    makeTreeWithStopSets, getMatchingSlices
 from pathlib import Path
 from preprocessor import preprocess
 import re
@@ -9,7 +10,8 @@ def showCounts(testCase):
         text = f.read()
 
     tokens = preprocess(text)
-    sliceSets = getMatchingSlices(tokens)
+    tree = makeTreeWithStopSets(tokens)
+    sliceSets = getMatchingSlices(tree)
     for starts, length in sorted(
         sliceSets,
         key=lambda item: len(item[0]) * item[1],
