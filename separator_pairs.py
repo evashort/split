@@ -7,11 +7,21 @@ def getSeparatorPairs(substrings):
     '''
     finder = SubstringsByLocation(substrings)
     for i, (starts, length) in enumerate(substrings):
-        idStartSets =
-        for gap in getGaps(starts, length):
-            for j, start = dict(finder.idsInInterval(*gap))
-            for 
-            
+        perGapIDStarts = [
+            multiDict(finder.idsInInterval(*gap)) \
+                for gap in getGaps(starts, length)
+        ]
+        allIDs = set(
+            j \
+                for idStarts in perGapIDStarts \
+                    for j in idStarts
+        )
+        yield (i, j), [
+            idStarts.get(j, []) \
+                for idStarts in perGapIDStarts
+        ] \
+            for j in allIDs
+
 def getGaps(starts, length):
     preStarts, gapStops = tee(starts)
     gapStarts = (
@@ -19,3 +29,10 @@ def getGaps(starts, length):
     )
     next(gapStops)
     return zip(gapStarts, gapStops)
+
+def multiDict(items):
+    result = {}
+    for k, v in items:
+        result.setdefault(k, []).append(v)
+
+    return result
