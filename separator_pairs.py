@@ -16,11 +16,16 @@ def getSeparatorPairs(substrings):
                 for idStarts in perGapIDStarts \
                     for j in idStarts
         )
-        yield (i, j), [
-            idStarts.get(j, []) \
-                for idStarts in perGapIDStarts
-        ] \
-            for j in allIDs
+        yield from (
+            (
+                (i, j),
+                [
+                    idStarts.get(j, []) \
+                        for idStarts in perGapIDStarts
+                ]
+            ) \
+                for j in allIDs
+        )
 
 def getGaps(starts, length):
     preStarts, gapStops = tee(starts)
