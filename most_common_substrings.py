@@ -25,10 +25,11 @@ def getMatchingSlices(treeWithStopSets):
         if node.stops in seenStopSets:
             continue
 
-        yield (
-            sorted((stop - length) for stop in node.stops),
-            length
-        )
+        if length > 0:
+            yield (
+                sorted((stop - length) for stop in node.stops),
+                length
+            )
 
         seenStopSets.add(node.stops)
         for child in node.children.values():
