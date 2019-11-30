@@ -17,7 +17,7 @@ def showBreakdown(testCase):
             for i, (starts, length) in enumerate(sliceSets) \
                 for start in starts
     )
-    for start, length, i in allSlices:
+    for start, length, i, count in allSlices:
         length = -length
         print('{}{} {}'.format(
             ' ' * getIndentLevel(count),
