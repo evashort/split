@@ -18,18 +18,27 @@ def showBreakdown(testCase):
             for i, (starts, length) in enumerate(sliceSets) \
                 for start in starts
     )
-    stopStack = [float('inf')]
+    stopStack = []
     for start, group in groupby(allSlices, lambda x: x[0]):
         group = list(group)
         stop = start + group[-1][1]
-        while stop > stopStack[-1]:
+        while stopStack and stop > stopStack[-1]:
             stopStack.pop()
 
-        print('{}{} {}'.format(
-            '    ' * (len(stopStack) - 1),
-            ' '.join(str(x[2]) for x in group),
-            ''.join(tokens[start:stop])
-        ))
+        prefix = '    ' * len(stopStack) \
+            + ' '.join(str(x[2]) for x in group) \
+            + ' '
+        if not stopStack:
+            spaceStart = start
+            prefixLength = len(prefix)
+
+        substring = ''.join(tokens[start:stop])
+        spaceCount = sum(
+            map(len, tokens[spaceStart:start])
+        ) + prefixLength - len(prefix)
+
+        line = prefix + ' ' * spaceCount + substring
+        print(line)
         stopStack.append(stop)
 
 if __name__ == '__main__':
