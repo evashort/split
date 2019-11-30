@@ -44,5 +44,5 @@ def showBreakdown(testCase):
 if __name__ == '__main__':
     with open('counts.txt', 'w', encoding='utf-8') as f:
         with redirect_stdout(f):
-            # https://www.sitepoint.com/colors-json-example/
-            showBreakdown('colors.json')
+            # https://www.mkyong.com/java/java-enum-example/
+            showBreakdown('WhoisRIR.java')
