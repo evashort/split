@@ -30,7 +30,7 @@ def showBreakdown(testCase):
             + ' '
         if not stopStack:
             spaceStart = start
-            prefixLength = len(prefix)
+            prefixLength = max(len(prefix), 12)
 
         substring = ''.join(tokens[start:stop])
         spaceCount = sum(
