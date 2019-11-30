@@ -18,23 +18,16 @@ def showBreakdown(testCase):
             for i, (starts, length) in enumerate(sliceSets) \
                 for start in starts
     )
+    oldStop = 0
     for start, group in groupby(allSlices, lambda x: x[0]):
         group = list(group)
+        stop = start + group[-1][1]
         print('{}{} {}'.format(
-            ' ' * getIndentLevel(max(x[3] for x in group)),
+            '    ' if stop <= oldStop else '',
             ' '.join(str(x[2]) for x in group),
-            ''.join(tokens[start : start + group[-1][1]])
+            ''.join(tokens[start:stop])
         ))
-
-def getIndentLevel(count):
-    if count >= 12:
-        return 0
-    if count >= 5:
-        return 4
-    elif count >= 3:
-        return 8
-    else:
-        return 12
+        oldStop = max(stop, oldStop)
 
 if __name__ == '__main__':
     with open('counts.txt', 'w', encoding='utf-8') as f:
