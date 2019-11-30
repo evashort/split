@@ -18,16 +18,19 @@ def showBreakdown(testCase):
             for i, (starts, length) in enumerate(sliceSets) \
                 for start in starts
     )
-    oldStop = 0
+    stopStack = [float('inf')]
     for start, group in groupby(allSlices, lambda x: x[0]):
         group = list(group)
         stop = start + group[-1][1]
+        while stop > stopStack[-1]:
+            stopStack.pop()
+
         print('{}{} {}'.format(
-            '    ' if stop <= oldStop else '',
+            '    ' * (len(stopStack) - 1),
             ' '.join(str(x[2]) for x in group),
             ''.join(tokens[start:stop])
         ))
-        oldStop = max(stop, oldStop)
+        stopStack.append(stop)
 
 if __name__ == '__main__':
     with open('counts.txt', 'w', encoding='utf-8') as f:
