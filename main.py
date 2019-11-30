@@ -22,7 +22,7 @@ def showBreakdown(testCase):
         group = list(group)
         print('{}{} {}'.format(
             ' ' * getIndentLevel(max(x[3] for x in group)),
-            ' '.join(x[2] for x in group),
+            ' '.join(str(x[2]) for x in group),
             ''.join(tokens[start : start + group[-1][1]])
         ))
 
