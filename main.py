@@ -25,7 +25,7 @@ def showBreakdown(testCase):
         while stopStack and stop > stopStack[-1]:
             stopStack.pop()
 
-        prefix = '    ' * len(stopStack) \
+        prefix = '  ' * len(stopStack) \
             + ' '.join(str(x[2]) for x in group) \
             + ' '
         if not stopStack:
