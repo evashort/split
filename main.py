@@ -1,4 +1,5 @@
 from contextlib import redirect_stdout
+from itertools import groupby
 from most_common_substrings import \
     makeTreeWithStopSets, getMatchingSlices
 from pathlib import Path
@@ -13,16 +14,16 @@ def showBreakdown(testCase):
     tree = makeTreeWithStopSets(tokens)
     sliceSets = getMatchingSlices(tree)
     allSlices = sorted(
-        (start, -length, i, len(starts)) \
+        (start, length, i, len(starts)) \
             for i, (starts, length) in enumerate(sliceSets) \
                 for start in starts
     )
-    for start, length, i, count in allSlices:
-        length = -length
+    for start, group in groupby(allSlices, lambda x: x[0]):
+        group = list(group)
         print('{}{} {}'.format(
-            ' ' * getIndentLevel(count),
-            i,
-            ''.join(tokens[start : start + length])
+            ' ' * getIndentLevel(max(x[3] for x in group)),
+            ' '.join(x[2] for x in group),
+            ''.join(tokens[start : start + group[-1][1]])
         ))
 
 def getIndentLevel(count):
