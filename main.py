@@ -5,12 +5,14 @@ from most_common_substrings import \
 from pathlib import Path
 from preprocessor import preprocess
 import re
+from imageio import imwrite
 
 def showBreakdown(testCase):
     with open(Path('testcases') / testCase) as f:
         text = f.read()
 
     tokens = preprocess(text)
+    imwrite('autocorrelation.png', (tokens == tokens[:, None]).astype(float)[::-1])
     tree = makeTreeWithStopSets(tokens)
     sliceSets = getMatchingSlices(tree)
     allSlices = sorted(
