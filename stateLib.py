@@ -5,18 +5,22 @@ def getStateScore(patternFinder, pattern):
     return getScore(len(pattern), totalLength=totalLength)
 
 def getUpperBound(patternFinder, pattern):
-    patterns = appendEach(
-        pattern,
-        patternFinder.getRepeatedTokens(),
-        includeOriginal=True
-    )
-    cycleCounts = sorted(
-        filter(
-            patternFinder.enoughCycles,
-            map(patternFinder.getCycleCount, patterns)
-        ),
-        reverse=True
-    )
+    cycleCounts = [
+        patternFinder.getCycleCount(pattern)
+    ]
+    patternPlus = list(pattern)
+    for token in patternFinder.getRepeatedTokens():
+        del patternPlus[len(pattern):]
+        while True:
+            patternPlus.append(token)
+            cycleCount = patternFinder.getCycleCount(patternPlus)
+            if patternFinder.enoughCycles(cycleCount):
+                cycleCounts.append(cycleCount)
+            else:
+                break
+
+    cycleCounts.sort(reverse=True)
+
     scores = (
         getScore(cycleLength, cycleCount, extraLength) \
             for cycleLength, (cycleCount, extraLength) \
