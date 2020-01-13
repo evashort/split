@@ -18,4 +18,4 @@ results = genericAStar.aStar(
 )
 
 for result in results:
-    print(result)
+    print(*result)

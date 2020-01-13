@@ -29,23 +29,9 @@ def getUpperBound(patternFinder, pattern):
     return max(scores)
 
 def getChildren(patternFinder, pattern):
-    children = appendEach(
-        pattern,
-        patternFinder.getRepeatedTokens()
-    )
-    filteredChildren= (
-        list(child) for child in children \
-            if patternFinder.enoughCycles(
-                patternFinder.getCycleCount(child)
-            )
-    )
-    return filteredChildren
-
-def appendEach(items, lastItemChoices, includeOriginal=False):
-    if includeOriginal:
-        yield items
-
-    itemsPlus = items + [None]
-    for lastItem in lastItemChoices:
-        itemsPlus[-1] = lastItem
-        yield itemsPlus
+    patternPlus = pattern + [None]
+    for token in patternFinder.getRepeatedTokens():
+        patternPlus[-1] = token
+        cycleCount = patternFinder.getCycleCount(patternPlus)
+        if patternFinder.enoughCycles(cycleCount):
+            yield pattern + [token]
