@@ -2,13 +2,15 @@ import bisect
 import collections
 
 class PatternFinder:
-    def __init__(self, tokens, minTokenCount=2):
+    def __init__(self, iTokens, minTokenCount=2):
         self.minTokenCount = minTokenCount
 
-        tokenCounts = collections.Counter(tokens)
+        tokenCounts = collections.Counter(
+            token for i, token in iTokens
+        )
         self.tokenIndices = multidict(
             (token, i) \
-                for i, token in enumerate(tokens) \
+                for i, token in iTokens \
                     if tokenCounts[token] >= self.minTokenCount
         )
 
