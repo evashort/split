@@ -20,8 +20,8 @@ if __name__ == '__main__':
     random.seed('reproducible test data 1')
     for i in range(1000):
         testData = [
-            tuple(random.random() for j in range(50)) \
-                for i in range(20)
+            tuple(random.random() for j in range(4)) \
+                for i in range(200)
         ]
         naiveNDS = {
             vector for vector in testData if not any(
