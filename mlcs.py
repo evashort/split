@@ -1,13 +1,15 @@
+import collections
 from referenceCounter import ReferenceCounter
 from successorTable import SuccessorTable
 
-def mlcs(*sequences):
+def mlcs(sequence, minCycleCount=2):
     # https://www.frontiersin.org/articles/10.3389/fgene.2017.00104/full
-    alphabet = set.intersection(*map(set, sequences))
-    tables = [
-        SuccessorTable(sequence, alphabet) for sequence in sequences
-    ]
-    initialKey = (-1,) * len(sequences)
+    alphabet = {
+        token for token, count in collections.Counter(sequence).items() \
+            if count >= minCycleCount
+    }
+    table = SuccessorTable(sequence, alphabet)
+    initialKey = None
     leveledDAG = {initialKey: Node()}
     parentCounts = ReferenceCounter({initialKey: 0})
     fringe = [initialKey]
@@ -17,12 +19,23 @@ def mlcs(*sequences):
         for key in fringe:
             node = leveledDAG[key]
             for childToken in alphabet:
-                try:
+                if key is None:
+                    childKey = tuple(table.tokenPositions[childToken])
+                else:
                     childKey = tuple(
-                        table.index(childToken, position + 1) \
-                            for position, table in zip(key, tables)
+                        uniq(
+                            takeUntilError(
+                                ValueError,
+                                (
+                                    table.index(childToken, position + 1) \
+                                        # pylint: disable=not-an-iterable
+                                        for position in key
+                                )
+                            )
+                        )
                     )
-                except ValueError:
+
+                if len(childKey) < minCycleCount:
                     continue
 
                 node.children.append(childKey)
@@ -35,11 +48,11 @@ def mlcs(*sequences):
 
         for key in parentCounts.getGarbage():
             node = leveledDAG.pop(key)
-            if key[0] >= 0:
-                token = sequences[0][key[0]]
-                childPaths = [path + [token] for path in node.paths]
-            else:
+            if key is None:
                 childPaths = [[]]
+            else:
+                token = sequence[key[0]]
+                childPaths = [path + [token] for path in node.paths]
 
             for childKey in node.children:
                 parentCounts.remove(childKey)
@@ -51,12 +64,31 @@ def mlcs(*sequences):
 
     return result
 
+def takeUntilError(exception, iterable):
+    try:
+        yield from iterable
+    except exception:
+        pass
+
+def uniq(iterable):
+    iterator = iter(iterable)
+    try:
+        prevItem = next(iterator)
+    except StopIteration:
+        return
+
+    yield prevItem
+    yield from (
+        (prevItem := item) for item in iterator \
+            if item != prevItem
+    )
+
 def keepLongest(*pathLists):
     maxLength = max(
-        len(paths[0]) for paths in filter(pathLists)
+        len(paths[0]) for paths in filter(None, pathLists)
     )
     result = []
-    for paths in filter(pathLists):
+    for paths in filter(None, pathLists):
         if len(paths[0]) == maxLength:
             result += paths
 
@@ -68,6 +100,5 @@ class Node:
         self.paths = []
 
 if __name__ == '__main__':
-    print(*mlcs('actagcta', 'tcaggtat'), sep='\n')
-    # tagta
-    # cagta
+    print(*mlcs('actagcta'), sep='\n')
+    # acta
