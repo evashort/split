@@ -10,3 +10,4 @@ def tokenize(text):
 
 if __name__ == '__main__':
     print(list(tokenize('a,~  1bA  \tC')))
+    #a#,#~#1ba#\t#C#
