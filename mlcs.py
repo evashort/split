@@ -10,7 +10,7 @@ def mlcs(sequence, minCycleCount=2):
     }
     table = SuccessorTable(sequence, alphabet)
     initialKey = None
-    leveledDAG = {initialKey: Node()}
+    leveledDAG = {initialKey: Node(paths=[()])}
     parentCounts = ReferenceCounter({initialKey: 0})
     fringe = [initialKey]
     result = []
@@ -41,26 +41,24 @@ def mlcs(sequence, minCycleCount=2):
                 node.children.append(childKey)
                 parentCounts.add(childKey)
                 if childKey not in leveledDAG:
-                    leveledDAG[childKey] = Node()
+                    leveledDAG[childKey] = Node(paths=[])
                     newFringe.append(childKey)
 
         fringe = newFringe
 
         for key in parentCounts.getGarbage():
             node = leveledDAG.pop(key)
-            if key is None:
-                childPaths = [[]]
-            else:
-                token = sequence[key[0]]
-                childPaths = [path + [token] for path in node.paths]
-
             for childKey in node.children:
                 parentCounts.remove(childKey)
                 childNode = leveledDAG[childKey]
-                childNode.paths = keepLongest(childNode.paths, childPaths)
+                childToken = sequence[childKey[0]]
+                childNode.paths = keepLongest(
+                    childNode.paths,
+                    [path + (childToken,) for path in node.paths]
+                )
 
             if not node.children:
-                result = keepLongest(result, childPaths)
+                result = keepLongest(result, node.paths)
 
     return result
 
@@ -95,9 +93,9 @@ def keepLongest(*pathLists):
     return result
 
 class Node:
-    def __init__(self):
+    def __init__(self, paths):
         self.children = []
-        self.paths = []
+        self.paths = paths
 
 if __name__ == '__main__':
     print(*mlcs('actagcta'), sep='\n')
