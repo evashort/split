@@ -13,6 +13,8 @@ def mlcs(sequence, minCycleCount=2):
     leveledDAG = {initialKey: Node(paths=[()])}
     parentCounts = ReferenceCounter({initialKey: 0})
     fringe = [initialKey]
+    maxDAGLength = 1
+    keysConsidered = 0
     result = []
     while leveledDAG:
         newFringe = []
@@ -35,6 +37,8 @@ def mlcs(sequence, minCycleCount=2):
                         )
                     )
 
+                keysConsidered += 1
+
                 if len(childKey) < minCycleCount:
                     continue
 
@@ -45,6 +49,8 @@ def mlcs(sequence, minCycleCount=2):
                     newFringe.append(childKey)
 
         fringe = newFringe
+
+        maxDAGLength = max(maxDAGLength, len(leveledDAG))
 
         for key in parentCounts.getGarbage():
             node = leveledDAG.pop(key)
@@ -59,6 +65,9 @@ def mlcs(sequence, minCycleCount=2):
 
             if not node.children:
                 result = keepLongest(result, node.paths)
+
+    print(f'time complexity: {keysConsidered}')
+    print(f'space complexity: {maxDAGLength}')
 
     return result
 
@@ -99,4 +108,6 @@ class Node:
 
 if __name__ == '__main__':
     print(*mlcs('actagcta'), sep='\n')
+    # time complexity: 15
+    # space complexity: 3
     # acta
