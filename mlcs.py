@@ -1,4 +1,5 @@
 import collections
+import heapq
 from referenceCounter import ReferenceCounter
 from successorTable import SuccessorTable
 
@@ -10,61 +11,53 @@ def mlcs(sequence, minCycleCount=2):
     }
     table = SuccessorTable(sequence, alphabet)
     initialKey = None
-    leveledDAG = {initialKey: Node(paths=[()])}
-    parentCounts = ReferenceCounter({initialKey: 0})
+    keyPaths = {initialKey: [()]}
     fringe = [initialKey]
     maxDAGLength = 1
     keysConsidered = 0
     result = []
-    while leveledDAG:
-        newFringe = []
-        for key in fringe:
-            node = leveledDAG[key]
-            for childToken in alphabet:
-                if key is None:
-                    childKey = tuple(table.tokenPositions[childToken])
-                else:
-                    childKey = tuple(
-                        uniq(
-                            takeUntilError(
-                                ValueError,
-                                (
-                                    table.index(childToken, position + 1) \
-                                        # pylint: disable=not-an-iterable
-                                        for position in key
-                                )
+    while fringe:
+        maxDAGLength = max(maxDAGLength, len(fringe))
+        key = heapq.heappop(fringe)
+        paths = keyPaths.pop(key)
+        nodeHasChildren = False
+        for childToken in alphabet:
+            if key is None:
+                childKey = tuple(table.tokenPositions[childToken])
+            else:
+                childKey = tuple(
+                    uniq(
+                        takeUntilError(
+                            ValueError,
+                            (
+                                table.index(childToken, position + 1) \
+                                    # pylint: disable=not-an-iterable
+                                    for position in key
                             )
                         )
                     )
-
-                keysConsidered += 1
-
-                if len(childKey) < minCycleCount:
-                    continue
-
-                node.children.append(childKey)
-                parentCounts.add(childKey)
-                if childKey not in leveledDAG:
-                    leveledDAG[childKey] = Node(paths=[])
-                    newFringe.append(childKey)
-
-        fringe = newFringe
-
-        maxDAGLength = max(maxDAGLength, len(leveledDAG))
-
-        for key in parentCounts.getGarbage():
-            node = leveledDAG.pop(key)
-            for childKey in node.children:
-                parentCounts.remove(childKey)
-                childNode = leveledDAG[childKey]
-                childToken = sequence[childKey[0]]
-                childNode.paths = keepLongest(
-                    childNode.paths,
-                    [path + (childToken,) for path in node.paths]
                 )
 
-            if not node.children:
-                result = keepLongest(result, node.paths)
+            keysConsidered += 1
+
+            if len(childKey) < minCycleCount:
+                continue
+
+            nodeHasChildren = True
+
+            try:
+                childPaths = keyPaths[childKey]
+            except KeyError:
+                childPaths = []
+                heapq.heappush(fringe, childKey)
+
+            keyPaths[childKey] = keepLongest(
+                childPaths,
+                [path + (childToken,) for path in paths]
+            )
+
+        if not nodeHasChildren:
+            result = keepLongest(result, paths)
 
     print(f'time complexity: {keysConsidered}')
     print(f'space complexity: {maxDAGLength}')
@@ -100,11 +93,6 @@ def keepLongest(*pathLists):
             result += paths
 
     return result
-
-class Node:
-    def __init__(self, paths):
-        self.children = []
-        self.paths = paths
 
 if __name__ == '__main__':
     print(*mlcs('actagcta'), sep='\n')

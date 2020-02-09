@@ -11,6 +11,10 @@ if __name__ == '__main__':
     for sequence in result:
         print(sequence)
         print(f'sequence length: {len(sequence)}')
-    # time complexity: 97112
-    # space complexity: 19444
-    # sequence length: 101
+    # old time complexity: 97112
+    # old space complexity: 19444
+    # old sequence length: 101
+
+    # new time complexity: 97096
+    # new space complexity: 1677
+    # new sequence length: 101
