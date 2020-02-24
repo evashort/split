@@ -26,6 +26,17 @@ class SuccessorTable:
 
         return position
 
+    def indexCycle(self, cycle: Iterable[Token]):
+        index = -1
+        indices = []
+        try:
+            while True:
+                for token in cycle:
+                    index = self.index(token, index + 1)
+                    indices.append(index)
+        except ValueError:
+            return indices
+
 Key = TypeVar('Key', bound=Hashable)
 Value = TypeVar('Value')
 def multidict(items: Iterable[Tuple[Key, Value]]) -> Dict[Key, List[Value]]:

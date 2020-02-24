@@ -4,65 +4,97 @@ from referenceCounter import ReferenceCounter
 from successorTable import SuccessorTable
 
 def mlcs(sequence, minCycleCount=2):
-    # https://www.frontiersin.org/articles/10.3389/fgene.2017.00104/full
     alphabet = {
         token for token, count in collections.Counter(sequence).items() \
             if count >= minCycleCount
     }
     table = SuccessorTable(sequence, alphabet)
-    initialKey = None
-    keyPaths = {initialKey: [()]}
-    fringe = [initialKey]
+    keyPaths = {
+        (
+            -len(positions),
+            tuple(positions),
+            tuple(positions)
+        ): [
+            (token,)
+        ] \
+            for token, positions in table.tokenPositions.items()
+    }
+    fringe = list(keyPaths)
+    heapq.heapify(fringe)
     maxDAGLength = 1
     keysConsidered = 0
+    prevCycleCount = float('inf')
     result = []
     while fringe:
         maxDAGLength = max(maxDAGLength, len(fringe))
         key = heapq.heappop(fringe)
+        cycleCount, startPoint, matchPoint = key
+        cycleCount = -cycleCount
         paths = keyPaths.pop(key)
-        nodeHasChildren = False
+        if cycleCount < prevCycleCount:
+            if prevCycleCount < float('inf'):
+                yield prevCycleCount, result
+            result = []
+            prevCycleCount = cycleCount
+
+        result = keepLongest(
+            result,
+            paths
+        )
         for childToken in alphabet:
-            if key is None:
-                childKey = tuple(table.tokenPositions[childToken])
-            else:
-                childKey = tuple(
-                    uniq(
-                        takeUntilError(
-                            ValueError,
-                            (
-                                table.index(childToken, position + 1) \
-                                    # pylint: disable=not-an-iterable
-                                    for position in key
-                            )
-                        )
+            keysConsidered += 1
+            childMatchPoint = tuple(
+                takeUntilError(
+                    ValueError,
+                    (
+                        table.index(childToken, start=position+1) \
+                            for position in matchPoint
                     )
                 )
-
-            keysConsidered += 1
-
-            if len(childKey) < minCycleCount:
-                continue
-
-            nodeHasChildren = True
-
-            try:
-                childPaths = keyPaths[childKey]
-            except KeyError:
-                childPaths = []
-                heapq.heappush(fringe, childKey)
-
-            keyPaths[childKey] = keepLongest(
-                childPaths,
-                [path + (childToken,) for path in paths]
+            )
+            testPoint = childMatchPoint + (float('inf'),) * (
+                len(matchPoint) - len(childMatchPoint) + 1
+            )
+            childMatchPoint = tuple(uniq(childMatchPoint))
+            childStartPoint = tuple(
+                position \
+                    for i, position in enumerate(startPoint) \
+                        if testPoint[i] != testPoint[i + 1]
             )
 
-        if not nodeHasChildren:
-            result = keepLongest(result, paths)
+            childCycleCountPaths = {}
+            for path in paths:
+                childPath = path + (childToken,)
+                childCycleCount \
+                    = len(table.indexCycle(childPath)) // len(childPath)
+                if childCycleCount < minCycleCount:
+                    continue
+
+                childPaths = childCycleCountPaths.setdefault(childCycleCount, [])
+                childPaths.append(childPath)
+
+            for childCycleCount, childPaths in childCycleCountPaths.items():
+                childKey = (
+                    -childCycleCount,
+                    childStartPoint,
+                    childMatchPoint
+                )
+
+                try:
+                    oldChildPaths = keyPaths[childKey]
+                except KeyError:
+                    oldChildPaths = []
+                    heapq.heappush(fringe, childKey)
+
+                keyPaths[childKey] = keepLongest(
+                    oldChildPaths,
+                    childPaths
+                )
+
+    yield prevCycleCount, result
 
     print(f'time complexity: {keysConsidered}')
     print(f'space complexity: {maxDAGLength}')
-
-    return result
 
 def takeUntilError(exception, iterable):
     try:
@@ -95,7 +127,12 @@ def keepLongest(*pathLists):
     return result
 
 if __name__ == '__main__':
-    print(*mlcs('actagcta'), sep='\n')
-    # time complexity: 15
-    # space complexity: 3
-    # acta
+    results = mlcs('actagcta')
+    for cycleCount, result in results:
+        print(cycleCount)
+        print(*result, sep='\n')
+    # time complexity: 24
+    # space complexity: 4
+    # a
+    # act
+    # cta
