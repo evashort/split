@@ -1,3 +1,4 @@
+import bisect
 import collections
 import heapq
 from referenceCounter import ReferenceCounter
@@ -43,23 +44,18 @@ def mlcs(sequence, minCycleCount=2):
         )
         for childToken in alphabet:
             keysConsidered += 1
-            childMatchPoint = tuple(
-                takeUntilError(
-                    ValueError,
-                    (
-                        table.index(childToken, start=position+1) \
-                            for position in matchPoint
-                    )
-                )
-            )
-            testPoint = childMatchPoint + (float('inf'),) * (
-                len(matchPoint) - len(childMatchPoint) + 1
-            )
-            childMatchPoint = tuple(uniq(childMatchPoint))
+            lastPosition = table.tokenPositions[childToken][-1]
+            childMatchPoint = tuple(sorted({
+                table.index(childToken, start=position+1) \
+                    for position in matchPoint \
+                        if position < lastPosition
+            }))
+            indexMap = [
+                bisect.bisect_left(matchPoint, position) - 1 \
+                    for position in childMatchPoint
+            ]
             childStartPoint = tuple(
-                position \
-                    for i, position in enumerate(startPoint) \
-                        if testPoint[i] != testPoint[i + 1]
+                startPoint[i] for i in indexMap
             )
 
             childCycleCountPaths = {}
@@ -95,25 +91,6 @@ def mlcs(sequence, minCycleCount=2):
 
     print(f'time complexity: {keysConsidered}')
     print(f'space complexity: {maxDAGLength}')
-
-def takeUntilError(exception, iterable):
-    try:
-        yield from iterable
-    except exception:
-        pass
-
-def uniq(iterable):
-    iterator = iter(iterable)
-    try:
-        prevItem = next(iterator)
-    except StopIteration:
-        return
-
-    yield prevItem
-    yield from (
-        (prevItem := item) for item in iterator \
-            if item != prevItem
-    )
 
 def keepLongest(*pathLists):
     maxLength = max(
