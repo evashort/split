@@ -1,8 +1,6 @@
-import bisect
 import collections
 import heapq
 import itertools
-from referenceCounter import ReferenceCounter
 from successorTable import SuccessorTable
 
 def mlcs(sequence, minCycleCount=2):
