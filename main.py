@@ -7,10 +7,9 @@ if __name__ == '__main__':
     tokens = [
         token for i, token in preprocessor.tokenize(text)
     ]
-    result = mlcs(tokens, 18)
-    for sequence in result:
-        print(sequence)
-        print(f'sequence length: {len(sequence)}')
-    # time complexity: 97112
-    # space complexity: 19444
-    # sequence length: 101
+    results = mlcs(tokens)
+    for cycleCount, result in results:
+        print(cycleCount)
+        print(*result, sep='\n')
+    # time complexity: 110595198
+    # space complexity: 487550

@@ -1,94 +1,134 @@
 import collections
-from referenceCounter import ReferenceCounter
+import heapq
+import itertools
 from successorTable import SuccessorTable
 
 def mlcs(sequence, minCycleCount=2):
-    # https://www.frontiersin.org/articles/10.3389/fgene.2017.00104/full
     alphabet = {
         token for token, count in collections.Counter(sequence).items() \
             if count >= minCycleCount
     }
     table = SuccessorTable(sequence, alphabet)
-    initialKey = None
-    leveledDAG = {initialKey: Node(paths=[()])}
-    parentCounts = ReferenceCounter({initialKey: 0})
-    fringe = [initialKey]
+    # Invariants:
+    # -key.cycleCount <= -key.child.cycleCount
+    # key.firstCycleStop < key.child.firstCycleStop
+    # Consequently, key < key.child
+    # Therefore by the time a key is popped from the heap,
+    # all its parents have already been expanded.
+    keyPaths = {
+        (
+            -len(positions), # cycleCount (negative)
+            positions[0] + 1, # firstCycleStop
+            tuple((p, p + 1) for p in positions[1:]), # cycleRanges
+        ): [
+            (token,)
+        ] \
+            for token, positions in table.tokenPositions.items()
+    }
+    fringe = list(keyPaths)
+    heapq.heapify(fringe)
     maxDAGLength = 1
     keysConsidered = 0
+    prevCycleCount = float('inf')
     result = []
-    while leveledDAG:
-        newFringe = []
-        for key in fringe:
-            node = leveledDAG[key]
-            for childToken in alphabet:
-                if key is None:
-                    childKey = tuple(table.tokenPositions[childToken])
-                else:
-                    childKey = tuple(
-                        uniq(
-                            takeUntilError(
-                                ValueError,
-                                (
-                                    table.index(childToken, position + 1) \
-                                        # pylint: disable=not-an-iterable
-                                        for position in key
-                                )
-                            )
-                        )
-                    )
+    while fringe:
+        maxDAGLength = max(maxDAGLength, len(fringe))
+        key = heapq.heappop(fringe)
+        cycleCount, firstCycleStop, cycleRanges = key
+        cycleCount = -cycleCount
+        paths = keyPaths.pop(key)
+        if cycleCount < prevCycleCount:
+            if prevCycleCount < float('inf'):
+                yield prevCycleCount, result
+            result = []
+            prevCycleCount = cycleCount
 
-                keysConsidered += 1
+        result = keepLongest(
+            result,
+            paths
+        )
+        for childToken in alphabet:
+            keysConsidered += 1
+            lastTokenPosition = table.tokenPositions[childToken][-1]
+            if firstCycleStop > lastTokenPosition:
+                continue
 
-                if len(childKey) < minCycleCount:
-                    continue
+            firstChildCycleStop = 1 + table.index(
+                childToken,
+                start=firstCycleStop
+            )
 
-                node.children.append(childKey)
-                parentCounts.add(childKey)
-                if childKey not in leveledDAG:
-                    leveledDAG[childKey] = Node(paths=[])
-                    newFringe.append(childKey)
+            tempCycleRanges = [
+                (
+                    start,
+                    1 + table.index(childToken, start=stop)
+                ) \
+                    for start, stop in cycleRanges \
+                        if stop <= lastTokenPosition
+            ]
+            childCycleRanges = tuple(getNonDominatedRanges(
+                tempCycleRanges,
+                minStart=firstChildCycleStop
+            ))
 
-        fringe = newFringe
+            childCycleCount = 1 + sum(
+                1 for _ in getNonOverlapping(childCycleRanges)
+            )
+            if childCycleCount < minCycleCount:
+                continue
 
-        maxDAGLength = max(maxDAGLength, len(leveledDAG))
+            childKey = (
+                -childCycleCount,
+                firstChildCycleStop,
+                childCycleRanges
+            )
+            try:
+                existingChildPaths = keyPaths[childKey]
+            except KeyError:
+                existingChildPaths = []
+                heapq.heappush(fringe, childKey)
 
-        for key in parentCounts.getGarbage():
-            node = leveledDAG.pop(key)
-            for childKey in node.children:
-                parentCounts.remove(childKey)
-                childNode = leveledDAG[childKey]
-                childToken = sequence[childKey[0]]
-                childNode.paths = keepLongest(
-                    childNode.paths,
-                    [path + (childToken,) for path in node.paths]
-                )
+            newChildPaths = [
+                path + (childToken,) for path in paths
+            ]
 
-            if not node.children:
-                result = keepLongest(result, node.paths)
+            keyPaths[childKey] = keepLongest(
+                existingChildPaths,
+                newChildPaths
+            )
+
+    yield prevCycleCount, result
 
     print(f'time complexity: {keysConsidered}')
     print(f'space complexity: {maxDAGLength}')
 
-    return result
-
-def takeUntilError(exception, iterable):
-    try:
-        yield from iterable
-    except exception:
-        pass
-
-def uniq(iterable):
-    iterator = iter(iterable)
-    try:
-        prevItem = next(iterator)
-    except StopIteration:
-        return
-
-    yield prevItem
-    yield from (
-        (prevItem := item) for item in iterator \
-            if item != prevItem
+def getNonDominatedRanges(ranges, minStart = float('-inf')):
+    """Preconditions:
+    ranges[i].start <= ranges[i + 1].start
+    ranges[i].stop <= ranges[i + 1].stop
+    """
+    return (
+        lastRange \
+            for _, (*_, lastRange) in itertools.groupby(
+                ranges,
+                lambda range: range[1]
+            ) \
+                if lastRange[0] >= minStart
     )
+
+def getNonOverlapping(ranges):
+    """Precondition: ranges are sorted by (start, stop)
+    """
+    lastStop = float('-inf') # pylint: disable=unused-variable
+    return (
+        (start, lastStop := stop)
+            for start, stop in ranges \
+                if start >= lastStop
+    )
+
+assert list(getNonOverlapping(
+    [(1, 4), (2, 5), (3, 6), (6, 8), (7, 9), (8, 10), (10, 12)]
+)) == [(1, 4), (6, 8), (8, 10), (10, 12)]
 
 def keepLongest(*pathLists):
     maxLength = max(
@@ -101,13 +141,28 @@ def keepLongest(*pathLists):
 
     return result
 
-class Node:
-    def __init__(self, paths):
-        self.children = []
-        self.paths = paths
-
 if __name__ == '__main__':
-    print(*mlcs('actagcta'), sep='\n')
-    # time complexity: 15
-    # space complexity: 3
-    # acta
+    results = mlcs('actagcta')
+    for cycleCount, result in results:
+        print(cycleCount)
+        print(*result, sep='\n')
+    # time complexity: 24
+    # space complexity: 4
+    # a
+    # act
+    # cta
+    results = mlcs('abacbadcbdcd')
+    for cycleCount, result in results:
+        print(cycleCount)
+        print(*result, sep='\n')
+    # time complexity: 72
+    # space complexity: 8
+    # ab
+    # bc
+    # cd
+    # bac
+    # abc
+    # acb
+    # cbd
+    # bcd
+    # bdc
