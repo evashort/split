@@ -26,6 +26,28 @@ class SuccessorTable:
 
         return position
 
+    def rindex(self, token: Token, end: int=float('inf')):
+        try:
+            positions = self.tokenPositions[token]
+        except KeyError:
+            raise ValueError(f'token not found: {token}')
+
+        positionIndex = bisect.bisect_right(positions, end) - 1
+        try:
+            position = positions[positionIndex]
+        except IndexError:
+            raise ValueError(
+                f'token not found in range [0, {end}]: {token}'
+            )
+
+        return position
+
+    def finditer(self, token: Token):
+        try:
+            yield from self.tokenPositions[token]
+        except KeyError:
+            return
+
 Key = TypeVar('Key', bound=Hashable)
 Value = TypeVar('Value')
 def multidict(items: Iterable[Tuple[Key, Value]]) -> Dict[Key, List[Value]]:

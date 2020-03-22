@@ -17,13 +17,17 @@ def mlcs(sequence, minCycleCount=2):
     # all its parents have already been expanded.
     keyPaths = {
         (
-            -len(positions), # cycleCount (negative)
-            positions[0] + 1, # firstCycleStop
-            tuple((p, p + 1) for p in positions[1:]), # cycleRanges
+            -sum(
+                1 for p in table.finditer(token)
+            ), # cycleCount (negative)
+            table.index(token) + 1, # firstCycleStop
+            tuple(
+                (p, p + 1) for p in table.finditer(token)
+            ) # cycleRanges
         ): [
             (token,)
         ] \
-            for token, positions in table.tokenPositions.items()
+            for token in alphabet
     }
     fringe = list(keyPaths)
     heapq.heapify(fringe)
@@ -39,7 +43,7 @@ def mlcs(sequence, minCycleCount=2):
         paths = keyPaths.pop(key)
         if cycleCount < prevCycleCount:
             if prevCycleCount < float('inf'):
-                yield prevCycleCount, result
+                yield from getPathPositions(result, table)
             result = []
             prevCycleCount = cycleCount
 
@@ -49,7 +53,7 @@ def mlcs(sequence, minCycleCount=2):
         )
         for childToken in alphabet:
             keysConsidered += 1
-            lastTokenPosition = table.tokenPositions[childToken][-1]
+            lastTokenPosition = table.rindex(childToken)
             if firstCycleStop > lastTokenPosition:
                 continue
 
@@ -97,7 +101,7 @@ def mlcs(sequence, minCycleCount=2):
                 newChildPaths
             )
 
-    yield prevCycleCount, result
+    yield from getPathPositions(result, table)
 
     print(f'time complexity: {keysConsidered}')
     print(f'space complexity: {maxDAGLength}')
@@ -141,20 +145,80 @@ def keepLongest(*pathLists):
 
     return result
 
+def getPathPositions(paths, table):
+    queue = [
+        (
+            table.index(path[0]), # lastPosition
+            -1, # positionCount (negative)
+            [table.index(path[0])], # positions
+            collections.deque(path) # path
+        ) \
+            for path in filter(noSubcycle, paths)
+    ]
+    heapq.heapify(queue)
+    prevLastPosition = -1
+    prevPath = None
+    while queue:
+        lastPosition, _, positions, path = heapq.heappop(queue)
+        path.rotate(-1)
+        if lastPosition == prevLastPosition and path == prevPath:
+            continue
+
+        prevLastPosition = lastPosition
+        prevPath = path
+
+        try:
+            childLastPosition = table.index(
+                path[0],
+                start=lastPosition + 1
+            )
+        except ValueError:
+            yield len(path), positions
+            continue
+
+        positions.append(childLastPosition)
+        childKey = (
+            childLastPosition,
+            -len(positions),
+            positions,
+            path
+        )
+        heapq.heappush(queue, childKey)
+
+def noSubcycle(sequence):
+    for cycleLength in range(1, len(sequence) // 2 + 1):
+        cycleCount, remainder = divmod(len(sequence), cycleLength)
+        if remainder:
+            continue
+
+        if sequence == sequence[:cycleLength] * cycleCount:
+            return False
+
+    return True
+
+def printResults(input, sep='', indent='    '):
+    results = mlcs(input)
+    oldCycleCount = (0, 0)
+    for cycleLength, positions in results:
+        cycleCount = divmod(len(positions), cycleLength)
+        if cycleCount != oldCycleCount:
+            print(f'*{cycleCount[0]}+{cycleCount[1]}')
+            oldCycleCount = cycleCount
+
+        print(
+            f'{indent}{input[positions[0]]}',
+            *(input[p] for p in positions[1:cycleLength]),
+            sep=sep,
+        )
+
 if __name__ == '__main__':
-    results = mlcs('actagcta')
-    for cycleCount, result in results:
-        print(cycleCount)
-        print(*result, sep='\n')
+    printResults('actagcta')
     # time complexity: 24
     # space complexity: 4
     # a
     # act
     # cta
-    results = mlcs('abacbadcbdcd')
-    for cycleCount, result in results:
-        print(cycleCount)
-        print(*result, sep='\n')
+    printResults('abacbadcbdcd')
     # time complexity: 72
     # space complexity: 8
     # ab
