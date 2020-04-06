@@ -8,5 +8,5 @@ if __name__ == '__main__':
         token for i, token in preprocessor.tokenize(text)
     ]
     mlcs.printResults(tokens)
-    # time complexity: 110595198
-    # space complexity: 487550
+    # time complexity: had to stop it early
+    # space complexity:

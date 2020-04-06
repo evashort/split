@@ -20,9 +20,7 @@ class SuccessorTable:
         try:
             position = positions[positionIndex]
         except IndexError:
-            raise ValueError(
-                f'token not found in range [{start}, inf): {token}'
-            )
+            return float('inf')
 
         return position
 
@@ -41,12 +39,6 @@ class SuccessorTable:
             )
 
         return position
-
-    def finditer(self, token: Token):
-        try:
-            yield from self.tokenPositions[token]
-        except KeyError:
-            return
 
 Key = TypeVar('Key', bound=Hashable)
 Value = TypeVar('Value')
