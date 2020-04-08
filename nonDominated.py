@@ -1,7 +1,7 @@
-def nonDominated(solutions, key=None, uniq=False):
+def nonDominated(solutions, key=None, uniq=False, existing=[]):
     # https://www.researchgate.net/publication/43789438_A_Fast_Algorithm_for_Finding_the_non_Dominated_Set_in_Multiobjective_Optimization
     solutions.sort(reverse=True, key=key)
-    result = []
+    result = existing
     for new in solutions:
         if any(
             dominates(old, new, key=key, uniq=uniq) \
@@ -9,7 +9,7 @@ def nonDominated(solutions, key=None, uniq=False):
         ):
             continue
 
-        result[:] = [
+        result = [
             old for old in result \
                 if not dominates(new, old, key=key, uniq=uniq)
         ]
@@ -45,5 +45,8 @@ if __name__ == '__main__':
                         if other != vector
             )
         }
-        nds = set(nonDominated(testData, uniq=True))
+        partialNDS = nonDominated(testData[:100], uniq=True)
+        nds = set(
+            nonDominated(testData[100:], uniq=True, existing=partialNDS)
+        )
         assert nds == naiveNDS

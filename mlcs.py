@@ -79,11 +79,12 @@ def mlcs(sequence, minCycleCount=2):
                             and len(path) >= minPathLength
         )
         result = nonDominated.nonDominated(
-            [*result, *pathItems],
+            list(pathItems),
             key=lambda item: (
                 len(item[0]), # cycleLength
                 item[4] # partialLength
-            )
+            ),
+            existing=result
         )
 
         for childToken in alphabet:
@@ -150,15 +151,13 @@ def mlcs(sequence, minCycleCount=2):
                 heapq.heappush(fringe, childKey)
             else:
                 childItems = nonDominated.nonDominated(
-                    [
-                        *flatItems(existingPathPartials),
-                        *flatItems(newPathPartials)
-                    ],
+                    list(flatItems(newPathPartials)),
                     key=lambda item: (
                         len(item[0]), # cycleLength
                         item[1][0], # partialStart
                         item[1][1], # partialLength
-                    )
+                    ),
+                    existing=list(flatItems(existingPathPartials))
                 )
                 childPathPartials = multidict(childItems)
 
