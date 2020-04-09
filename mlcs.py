@@ -1,6 +1,7 @@
 import collections
 import heapq
 import itertools
+import nds2D
 import nonDominated
 from successorTable import SuccessorTable, multidict
 import time
@@ -41,7 +42,13 @@ def mlcs(sequence, minCycleCount=2):
     keysConsidered = 0
     prevCycleCount = float('inf')
     minPathLength = 1
-    result = []
+    result = nds2D.NDS2D(
+        key=lambda item: (
+            -len(item[0]), # cycleLength (longer is better)
+            -item[4] # partialLength (longer is better)
+        ),
+        duplicates='keep'
+    )
     while fringe:
         maxDAGLength = max(maxDAGLength, len(fringe))
         key = heapq.heappop(fringe)
@@ -51,42 +58,31 @@ def mlcs(sequence, minCycleCount=2):
         pathPartials = keyPaths.pop(key)
         if cycleCount < prevCycleCount:
             if prevCycleCount < float('inf'):
-                result.sort(
-                    key=lambda item: item[4], # partialLength
-                    reverse=True
-                )
-                for item in result:
+                # order by increasing cycleLength (decreasing partialLength)
+                for item in reversed(result):
                     if not hasSubcycle(item[0]):
                         yield getPathPositions(*item, table)
 
-            minPathLength = 1 + max(
-                len(path) for path, *_ in result
-            ) \
-                if result else minPathLength
-            result = []
+            if result:
+                longestPath, *_ = result[0]
+                minPathLength = 1 + len(longestPath)
+                result.clear()
+
             prevCycleCount = cycleCount
 
-        pathItems = (
-            (
-                path,
-                firstStop,
-                tuple(nonOverlapping(cycleRanges)),
-                partialStart,
-                partialLength
-            ) \
-                for path, partials in pathPartials.items() \
-                    for partialStart, partialLength in partials \
-                        if partialStart >= lastStop \
-                            and len(path) >= minPathLength
-        )
-        result = nonDominated.nonDominated(
-            list(pathItems),
-            key=lambda item: (
-                len(item[0]), # cycleLength
-                item[4] # partialLength
-            ),
-            existing=result
-        )
+        for path, partials in pathPartials.items():
+            for partialStart, partialLength in partials:
+                if partialStart >= lastStop \
+                    and len(path) >= minPathLength:
+                    result.add(
+                        (
+                            path,
+                            firstStop,
+                            tuple(nonOverlapping(cycleRanges)),
+                            partialStart,
+                            partialLength
+                        )
+                    )
 
         for childToken in alphabet:
             keysConsidered += 1
@@ -164,11 +160,8 @@ def mlcs(sequence, minCycleCount=2):
 
             keyPaths[childKey] = childPathPartials
 
-    result.sort(
-        key=lambda item: item[4], # partialLength
-        reverse=True
-    )
-    for item in result:
+    # order by increasing cycleLength (decreasing partialLength)
+    for item in reversed(result):
         if not hasSubcycle(item[0]):
             yield getPathPositions(*item, table)
 
