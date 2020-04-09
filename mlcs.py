@@ -3,6 +3,7 @@ import heapq
 import itertools
 import nonDominated
 from successorTable import SuccessorTable, multidict
+import time
 
 def mlcs(sequence, minCycleCount=2):
     alphabet = {
@@ -245,10 +246,25 @@ def printResults(input, sep='', indent='    '):
 
     results = mlcs(input)
     oldCycleCount = (0, 0)
+    lastTime = time.time()
     for cycleLength, positions in results:
         cycleCount = divmod(len(positions), cycleLength)
+        if len(input) > 80 and cycleCount[0] != oldCycleCount[0]:
+            thisTime = time.time()
+            duration = thisTime - lastTime
+            lastTime = thisTime
+        else:
+            duration = 0
+
         if cycleCount != oldCycleCount:
-            print(f'*{cycleCount[0]}+{cycleCount[1]}')
+            thisTime = time.time()
+            if duration:
+                print(
+                    f'*{cycleCount[0]}+{cycleCount[1]}' \
+                        f'                {duration}'
+                )
+            else:
+                print(f'*{cycleCount[0]}+{cycleCount[1]}')
             oldCycleCount = cycleCount
 
         print(
