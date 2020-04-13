@@ -3,15 +3,15 @@ import collections
 import heapq
 import itertools
 import nonDominated
-from successorTable import SuccessorTable, multidict
 import time
 
 def mlcs(sequence, minCycleCount=2):
-    alphabet = {
-        token for token, count in collections.Counter(sequence).items() \
-            if count >= minCycleCount
-    }
-    table = SuccessorTable(sequence, alphabet)
+    tokenCounts = collections.Counter(sequence)
+    tokenPositions = {}
+    for position, token in enumerate(sequence):
+        if tokenCounts[token] >= minCycleCount:
+            tokenPositions.setdefault(token, []).append(position)
+
     # Invariants:
     # -key.cycleCount <= -key.child.cycleCount
     # key.firstCycleStop < key.child.firstCycleStop
@@ -20,10 +20,10 @@ def mlcs(sequence, minCycleCount=2):
     # all its parents have already been expanded.
     keyPaths = {
         (
-            -len(table.tokenPositions[token]), # cycleCount (negative)
-            table.index(token) + 1, # firstCycleStop
+            -len(tokenPositions[token]), # cycleCount (negative)
+            tokenPositions[token][0] + 1, # firstCycleStop
             tuple(
-                (p, p + 1) for p in table.tokenPositions[token][1:]
+                (p, p + 1) for p in tokenPositions[token][1:]
             ), # cycleRanges
         ): {
             # path
@@ -34,7 +34,7 @@ def mlcs(sequence, minCycleCount=2):
                 )
             ] # partials
         } \
-            for token in alphabet
+            for token in tokenPositions
     }
     fringe = list(keyPaths)
     heapq.heapify(fringe)
@@ -57,7 +57,7 @@ def mlcs(sequence, minCycleCount=2):
                 )
                 for item in result:
                     if not hasSubcycle(item[0]):
-                        yield getPathPositions(*item, table)
+                        yield getPathPositions(*item, tokenPositions)
 
             minPathLength = 1 + max(
                 len(path) for path, *_ in result
@@ -89,13 +89,13 @@ def mlcs(sequence, minCycleCount=2):
             existing=result
         )
 
-        for childToken in alphabet:
+        for childToken in tokenPositions:
             keysConsidered += 1
 
             childFirstStop, childCycleRanges = getChildCycleRanges(
                 firstStop,
                 cycleRanges,
-                table.tokenPositions[childToken]
+                tokenPositions[childToken]
             )
 
             childCycleCount = 1 + sum(
@@ -141,7 +141,7 @@ def mlcs(sequence, minCycleCount=2):
                     ),
                     existing=list(flatItems(existingPathPartials))
                 )
-                childPathPartials = multidict(childItems)
+                childPathPartials = multiDict(childItems)
 
             keyPaths[childKey] = childPathPartials
 
@@ -151,10 +151,17 @@ def mlcs(sequence, minCycleCount=2):
     )
     for item in result:
         if not hasSubcycle(item[0]):
-            yield getPathPositions(*item, table)
+            yield getPathPositions(*item, tokenPositions)
 
     print(f'time complexity: {keysConsidered}')
     print(f'space complexity: {maxDAGLength}')
+
+def multiDict(items):
+    result = {}
+    for k, v in items:
+        result.setdefault(k, []).append(v)
+
+    return result
 
 def flatItems(multiDict):
     return (
@@ -216,31 +223,50 @@ def getPathPositions(
     cycleRanges,
     partialStart,
     partialLength,
-    table
+    tokenPositions
 ):
-    result = [firstStop - 1]
-    for token in path[-2::-1]:
-        result.append(
-            table.rindex(token, end=result[-1] - 1)
-        )
+    choiceLists = [
+        tokenPositions[token] for token in path
+    ]
 
+    result = list(
+        chooseDecreasing(reversed(choiceLists), firstStop - 1)
+    )
     result.reverse()
 
     for cycleStart, _ in cycleRanges:
-        result.append(cycleStart)
-        for token in path[1:]:
-            result.append(
-                table.index(token, start=result[-1] + 1)
-            )
+        result.extend(
+            chooseIncreasing(choiceLists, cycleStart)
+        )
 
     if partialLength:
-        result.append(partialStart)
-        for token in path[1:partialLength]:
-            result.append(
-                table.index(token, start=result[-1] + 1)
-            )
+        result.extend(
+            chooseIncreasing(choiceLists, partialStart)
+        )
 
     return len(path), result
+
+def chooseIncreasing(choiceLists, firstChoice):
+    choiceLists = iter(choiceLists)
+    next(choiceLists)
+    yield (choice := firstChoice)
+    for choices in choiceLists:
+        i = bisect.bisect_right(choices, choice)
+        if i >= len(choices):
+            break
+
+        yield (choice := choices[i])
+
+def chooseDecreasing(choiceLists, firstChoice):
+    choiceLists = iter(choiceLists)
+    next(choiceLists)
+    yield (choice := firstChoice)
+    for choices in choiceLists:
+        i = bisect.bisect_left(choices, choice) - 1
+        if i < 0:
+            break
+
+        yield (choice := choices[i])
 
 def hasSubcycle(sequence):
     for cycleLength in range(1, len(sequence) // 2 + 1):
