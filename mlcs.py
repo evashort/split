@@ -57,7 +57,7 @@ def mlcs(sequence, minCycleCount=2):
                 )
                 for item in result:
                     if not hasSubcycle(item[0]):
-                        yield getPathPositions(*item, tokenPositions)
+                        yield getPathPositions(*item[:4], tokenPositions)
 
             minPathLength = 1 + max(
                 len(path) for path, *_ in result
@@ -151,7 +151,7 @@ def mlcs(sequence, minCycleCount=2):
     )
     for item in result:
         if not hasSubcycle(item[0]):
-            yield getPathPositions(*item, tokenPositions)
+            yield getPathPositions(*item[:4], tokenPositions)
 
     print(f'time complexity: {keysConsidered}')
     print(f'space complexity: {maxDAGLength}')
@@ -222,46 +222,39 @@ def getPathPositions(
     firstStop,
     cycleRanges,
     partialStart,
-    partialLength,
     tokenPositions
 ):
-    choiceLists = [
-        tokenPositions[token] for token in path
-    ]
+    menus = [tokenPositions[token] for token in path]
 
     result = list(
-        chooseDecreasing(reversed(choiceLists), firstStop - 1)
+        chooseDecreasing(reversed(menus), firstStop - 1)
     )
     result.reverse()
 
     for cycleStart, _ in cycleRanges:
-        result.extend(
-            chooseIncreasing(choiceLists, cycleStart)
-        )
+        result.extend(chooseIncreasing(menus, cycleStart))
 
-    if partialLength:
-        result.extend(
-            chooseIncreasing(choiceLists, partialStart)
-        )
+    if partialStart < float('inf'):
+        result.extend(chooseIncreasing(menus, partialStart))
 
     return len(path), result
 
-def chooseIncreasing(choiceLists, firstChoice):
-    choiceLists = iter(choiceLists)
-    next(choiceLists)
+def chooseIncreasing(menus, firstChoice):
+    menus = iter(menus)
+    next(menus)
     yield (choice := firstChoice)
-    for choices in choiceLists:
+    for choices in menus:
         i = bisect.bisect_right(choices, choice)
         if i >= len(choices):
             break
 
         yield (choice := choices[i])
 
-def chooseDecreasing(choiceLists, firstChoice):
-    choiceLists = iter(choiceLists)
-    next(choiceLists)
+def chooseDecreasing(menus, firstChoice):
+    menus = iter(menus)
+    next(menus)
     yield (choice := firstChoice)
-    for choices in choiceLists:
+    for choices in menus:
         i = bisect.bisect_left(choices, choice) - 1
         if i < 0:
             break
