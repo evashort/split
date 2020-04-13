@@ -1,3 +1,4 @@
+import bisect
 import collections
 import heapq
 import itertools
@@ -47,7 +48,6 @@ def mlcs(sequence, minCycleCount=2):
         key = heapq.heappop(fringe)
         cycleCount, firstStop, cycleRanges = key
         cycleCount = -cycleCount
-        *_, (_, lastStop) = nonOverlapping(cycleRanges)
         pathPartials = keyPaths.pop(key)
         if cycleCount < prevCycleCount:
             if prevCycleCount < float('inf'):
@@ -66,17 +66,18 @@ def mlcs(sequence, minCycleCount=2):
             result = []
             prevCycleCount = cycleCount
 
+        nonOverlappingRanges = list(nonOverlapping(cycleRanges))
         pathItems = (
             (
                 path,
                 firstStop,
-                tuple(nonOverlapping(cycleRanges)),
+                nonOverlappingRanges,
                 partialStart,
                 partialLength
             ) \
                 for path, partials in pathPartials.items() \
                     for partialStart, partialLength in partials \
-                        if partialStart >= lastStop \
+                        if partialStart >= nonOverlappingRanges[-1][-1] \
                             and len(path) >= minPathLength
         )
         result = nonDominated.nonDominated(
@@ -91,49 +92,29 @@ def mlcs(sequence, minCycleCount=2):
         for childToken in alphabet:
             keysConsidered += 1
 
-            # extend each range by including the next occurrence of
-            # childToken, removing any ranges that overlap the first range
-            # note: partial ranges that overlap the first range don't need to
-            # be removed because at that point there is only one cycle anyway
-            childFirstStop = 1 + table.index(childToken, start=firstStop)
-            extendedRanges = [
-                (
-                    start,
-                    1 + table.index(childToken, start=stop)
-                ) \
-                    for start, stop in cycleRanges \
-                        if start >= childFirstStop
-            ]
-
-            # remove dominated ranges by picking the latest start for each
-            # distinct value of stop
-            nonDominatedRanges = [
-                lastRange \
-                    for _, (*_, lastRange) in itertools.groupby(
-                        extendedRanges,
-                        lambda range: range[1]
-                    )
-            ]
-
-            # check if final range is now partial
-            if nonDominatedRanges \
-                and nonDominatedRanges[-1][1] == float('inf'):
-                newPartialStart, _ = nonDominatedRanges.pop()
-                newPartialLength = max(map(len, pathPartials))
-            else:
-                newPartialLength = float('inf')
+            childFirstStop, childCycleRanges = getChildCycleRanges(
+                firstStop,
+                cycleRanges,
+                table.tokenPositions[childToken]
+            )
 
             childCycleCount = 1 + sum(
-                1 for i in nonOverlapping(nonDominatedRanges)
+                1 for i in nonOverlapping(childCycleRanges)
             )
             if childCycleCount < minCycleCount:
                 continue
 
+            # if lastStart is gone, it must have become partial
+            lastStart = cycleRanges[-1][0]
+            if childCycleRanges[-1][0] < lastStart:
+                newPartialLength = max(map(len, pathPartials))
+                newPartials = [(lastStart, newPartialLength)]
+            else:
+                newPartialLength = 0
+
             newPathPartials = {
                 path + (childToken,): (
-                    partials + [
-                        (newPartialStart, newPartialLength)
-                    ] \
+                    partials + newPartials \
                         if len(path) == newPartialLength \
                             else partials
                 ) \
@@ -143,7 +124,7 @@ def mlcs(sequence, minCycleCount=2):
             childKey = (
                 -childCycleCount,
                 childFirstStop,
-                tuple(nonDominatedRanges)
+                childCycleRanges
             )
             try:
                 existingPathPartials = keyPaths[childKey]
@@ -181,6 +162,39 @@ def flatItems(multiDict):
             for key, values in multiDict.items() \
                 for value in values
     )
+
+def getChildCycleRanges(firstStop, cycleRanges, tokenPositions):
+    if firstStop > tokenPositions[-1]:
+        return float('inf'), ()
+
+    childFirstStop = 1 + tokenPositions[
+        bisect.bisect_left(tokenPositions, firstStop)
+    ]
+
+    # extend each range by including the next occurrence of
+    # childToken, removing any ranges that overlap the first range
+    extendedRanges = (
+        (
+            start,
+            1 + tokenPositions[
+                bisect.bisect_left(tokenPositions, stop)
+            ]
+        ) \
+            for start, stop in cycleRanges \
+                if start >= childFirstStop and stop <= tokenPositions[-1]
+    )
+
+    # remove dominated ranges by picking the latest start for each
+    # distinct value of stop
+    nonDominatedRanges = tuple(
+        lastRange \
+            for _, (*_, lastRange) in itertools.groupby(
+                extendedRanges,
+                lambda range: range[1]
+            )
+    )
+
+    return childFirstStop, nonDominatedRanges
 
 def nonOverlapping(ranges):
     """Precondition: ranges are sorted by (start, stop)
