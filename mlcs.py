@@ -2,7 +2,6 @@ import bisect
 import collections
 import heapq
 import itertools
-from nds2D import NDS2D
 import time
 
 def mlcs(sequence, minCycleCount=2):
@@ -25,89 +24,90 @@ def mlcs(sequence, minCycleCount=2):
             tuple(
                 (p, p + 1) for p in tokenPositions[token][1:]
             ), # cycleRanges
-        ): [
-            (
-                (token, None), # path
-                1, # cycleLength (pathLength)
-                [
-                    (
-                        0, # partialLength
-                        float('inf') # partialStart
-                    )
-                ] # partials
-            )
-         ] \
+        ): (
+            1, # pathLength
+            [
+                (
+                    len(sequence), # partialStart
+                    0 # partialLength
+                )
+            ], # partials
+            [
+                (
+                    (token, None), # path
+                    {len(sequence)}, # partialStart
+                )
+            ] # pathPartialStarts
+        ) \
             for token in tokenPositions
     }
     fringe = list(keyPaths)
     heapq.heapify(fringe)
+
     maxDAGLength = 1
     keysConsidered = 0
-    prevCycleCount = float('inf')
-    minPathLength = 1
+
     result = []
-    resultScores = set()
-    nds2D = NDS2D()
+    resultCycleCount = float('inf')
+    resultPathLength = 0
+    resultPartialLength = 0
     while fringe:
         maxDAGLength = max(maxDAGLength, len(fringe))
+
         key = heapq.heappop(fringe)
         cycleCount, firstStop, cycleRanges = key
         cycleCount = -cycleCount
-        pathPartials = keyPaths.pop(key)
-        if cycleCount < prevCycleCount:
-            if prevCycleCount < float('inf'):
-                result = sorted(
-                    (item for item in result if item[0] in resultScores),
-                    key=lambda item: item[0]
-                )
-                for item in result:
-                    yield getPathPositions(*item[1:], tokenPositions)
+        pathLength, partials, pathPartialStarts = keyPaths.pop(key)
 
-            minPathLength = 1 + max(
-                (pathLength for (pathLength, _), *_ in result),
-                default=minPathLength - 1
-            )
+        if cycleCount < resultCycleCount:
+            yield from processResult(result, tokenPositions)
+            resultCycleCount = cycleCount
+            if result:
+                resultPathLength += 1
+                resultPartialLength = 0
+
             result.clear()
-            resultScores.clear()
-            prevCycleCount = cycleCount
 
-        nonOverlappingRanges = list(nonOverlapping(cycleRanges))
-        *_, (_, lastStop) = nonOverlappingRanges
-        filteredPathPartials = [
-            (
-                path,
-                pathLength,
-                max(
+        if pathLength >= resultPathLength:
+            if pathLength > resultPathLength:
+                result.clear()
+                resultPathLength = pathLength
+                resultPartialLength = 0
+
+            nonOverlappingRanges = list(nonOverlapping(cycleRanges))
+            lastStop = nonOverlappingRanges[-1][1]
+            partialIndex = bisect.bisect_left(partials, (lastStop, 0))
+            partialStart, partialLength = partials[partialIndex]
+            if partialLength >= resultPartialLength:
+                if partialLength > resultPartialLength:
+                    result.clear()
+                    resultPartialLength = partialLength
+
+                allowedPartialStarts = {partialStart}
+                # add all later starts that have the same length
+                # (note that partials are ordered by increasing start
+                # which is equivalent to decreasing length)
+                for i in range(partialIndex + 1, len(partials)):
+                    partialStart, partialLength = partials[i]
+                    if partialLength < resultPartialLength:
+                        break
+
+                    allowedPartialStarts.add(partialStart)
+
+                result.extend(
+                    # len(partialStarts) will be 1 because the same path can't
+                    # have two partialStarts with the same partialLength
                     (
-                        partial for partial in partials \
-                            if partial[1] >= lastStop
-                    ),
-                    default=(0, 0)
+                        path,
+                        firstStop,
+                        nonOverlappingRanges,
+                        *partialStarts
+                    ) \
+                        for path, partialStarts in filterPathPartialStarts(
+                            pathPartialStarts,
+                            allowedPartialStarts
+                        )
                 )
-            ) \
-                for path, pathLength, partials in pathPartials \
-                    if pathLength >= minPathLength \
-                        and not hasSubcycle(unlinkList(path))
-        ]
-        resultScores.update(
-            (pathLength, partialLength) \
-                for _, pathLength, (partialLength, _) in filteredPathPartials
-        )
-        resultScores = set(nonDominated2D(resultScores))
-        result.extend(
-            (
-                (pathLength, partialLength),
-                path,
-                firstStop,
-                nonOverlappingRanges,
-                partialStart
-            ) for (
-                path,
-                pathLength,
-                (partialLength, partialStart)
-            ) in filteredPathPartials \
-                if (pathLength, partialLength) in resultScores
-        )
 
         for childToken in tokenPositions:
             keysConsidered += 1
@@ -124,103 +124,109 @@ def mlcs(sequence, minCycleCount=2):
             if childCycleCount < minCycleCount:
                 continue
 
-            # if lastStart is gone, it must have become partial
-            lastStart = cycleRanges[-1][0]
-            if childCycleRanges[-1][0] < lastStart:
-                newPartialLength = max(
-                    pathLength for _, pathLength, _ in pathPartials
-                )
-                newPartials = [(newPartialLength, lastStart)]
-            else:
-                newPartialLength = 0
-
-            childPathPartials = [
-                (
-                    (childToken, path),
-                    1 + pathLength,
-                    partials + newPartials \
-                        if pathLength == newPartialLength \
-                            else partials
-                ) \
-                    for path, pathLength, partials in pathPartials
-            ]
-
             childKey = (
                 -childCycleCount,
                 childFirstStop,
                 childCycleRanges
             )
+            otherPathLength = 0
             try:
-                existingPathPartials = keyPaths[childKey]
+                otherPathLength, otherPartials, otherPathPartialStarts \
+                    = keyPaths[childKey]
             except KeyError:
                 heapq.heappush(fringe, childKey)
-            else:
-                childPathPartials.extend(existingPathPartials)
-                triples = sorted(
-                    {
-                        (pathLength, *partial) \
-                            for _, pathLength, partials in childPathPartials \
-                                for partial in partials
-                    },
-                    reverse=True
-                )
-                triples = {
-                    triple for triple in triples \
-                        if nds2D.add((-triple[1], -triple[2]))
-                }
-                nds2D.clear()
-                childPathPartials = (
+
+            childPathLength = pathLength + 1
+            if childPathLength < otherPathLength:
+                continue
+
+            # if lastStart is gone, it must have become partial
+            lastStart = cycleRanges[-1][0]
+            if childCycleRanges[-1][0] < lastStart:
+                childPartials = [(lastStart, pathLength)] + partials
+                newPartialStarts = {lastStart}
+                childPathPartialStarts = [
                     (
-                        path,
-                        pathLength,
-                        [
-                            partial for partial in partials \
-                                if (pathLength, *partial) in triples
-                        ]
+                        (childToken, path),
+                        partialStarts.union(newPartialStarts)
                     ) \
-                        for path, pathLength, partials in childPathPartials
-                )
-                childPathPartials = [
-                    pathPartial for pathPartial in childPathPartials \
-                        if pathPartial[2] # partials
+                        for path, partialStarts in pathPartialStarts
+                ]
+            else:
+                childPartials = partials
+                childPathPartialStarts = [
+                    ((childToken, path), partialStarts) \
+                        for path, partialStarts in pathPartialStarts
                 ]
 
-            keyPaths[childKey] = childPathPartials
+            if otherPathLength == childPathLength:
+                childPartials, childPathPartialStarts = mergePartialMappings(
+                    (childPartials, childPathPartialStarts),
+                    (otherPartials, otherPathPartialStarts)
+                )
 
-    result = sorted(
-        (item for item in result if item[0] in resultScores),
-        key=lambda item: item[0]
-    )
-    for item in result:
-        yield getPathPositions(*item[1:], tokenPositions)
+            keyPaths[childKey] = (
+                childPathLength,
+                childPartials,
+                childPathPartialStarts
+            )
+
+    yield from processResult(result, tokenPositions)
 
     print(f'time complexity: {keysConsidered}')
     print(f'space complexity: {maxDAGLength}')
 
-def nonDominated2D(items):
-    items = sorted(
-        items,
-        key=lambda item: item[::-1],
-        reverse=True
+def mergePartialMappings(*partialMappings):
+    mergedPartials = getNonDominatedPartials(
+        {
+            partial \
+                for partials, _ in partialMappings \
+                    for partial in partials
+        }
     )
-    stairs = itertools.accumulate(items, max)
-    return (
-        item for item, par in zip(items, stairs) \
-            if item == par
+    partialSet = set(mergedPartials)
+    mergedPathPartialStarts = [
+        pair \
+            for filteredPathPartialStarts in (
+                filterPathPartialStarts(
+                    pathPartialStarts,
+                    {start for start, _ in partialSet.intersection(partials)}
+                ) \
+                    for partials, pathPartialStarts in partialMappings
+            ) \
+                for pair in filteredPathPartialStarts
+    ]
+    return mergedPartials, mergedPathPartialStarts
+
+def getNonDominatedPartials(partials):
+    '''
+    For each value of start, choose the partial with the maximum length
+    unless there is a partial with a later start and a greater length.
+    '''
+    # sort by decreasing start, then decreasing length
+    partials = sorted(partials, reverse=True)
+    # force lengths to be increasing
+    minLengths = itertools.accumulate(
+        (length for _, length in partials),
+        max
     )
+    nonDominatedPartials = [
+        partial for partial, minLength in zip(partials, minLengths) \
+            if partial[1] == minLength
+    ]
+    nonDominatedPartials.reverse()
+    return nonDominatedPartials
 
-def multiDict(items):
-    result = {}
-    for k, v in items:
-        result.setdefault(k, []).append(v)
-
-    return result
-
-def flatItems(multiDict):
+def filterPathPartialStarts(pathPartialStarts, allowedPartialStarts):
     return (
-        (key, value) \
-            for key, values in multiDict.items() \
-                for value in values
+        (filteredPath, filteredPartialStarts) \
+            for filteredPath, filteredPartialStarts in (
+                # I believe set intersection is faster if the smaller
+                # set is passed in as other
+                (path, allowedPartialStarts.intersection(partialStarts)) \
+                    for path, partialStarts in pathPartialStarts
+            ) \
+                if filteredPartialStarts
     )
 
 def getChildCycleRanges(firstStop, cycleRanges, tokenPositions):
@@ -277,7 +283,6 @@ def getPathPositions(
     partialStart,
     tokenPositions
 ):
-    path = unlinkList(path)
     menus = [tokenPositions[token] for token in path]
 
     result = list(
@@ -288,7 +293,7 @@ def getPathPositions(
     for cycleStart, _ in cycleRanges:
         result.extend(chooseIncreasing(menus, cycleStart))
 
-    if partialStart < float('inf'):
+    if partialStart <= menus[0][-1]:
         result.extend(chooseIncreasing(menus, partialStart))
 
     return len(path), result
@@ -315,14 +320,16 @@ def chooseDecreasing(menus, firstChoice):
 
         yield (choice := choices[i])
 
-def unlinkList(linkedList):
-    result = []
-    while linkedList is not None:
-        item, linkedList = linkedList
-        result.append(item)
+def processResult(result, tokenPositions):
+    for nestedPath, *rest in result:
+        path = []
+        while nestedPath is not None:
+            token, nestedPath = nestedPath
+            path.append(token)
 
-    result.reverse()
-    return result
+        path.reverse()
+        if not hasSubcycle(path):
+            yield getPathPositions(path, *rest, tokenPositions)
 
 def hasSubcycle(sequence):
     for cycleLength in range(1, len(sequence) // 2 + 1):
@@ -394,22 +401,22 @@ if __name__ == '__main__':
     # time complexity: 64
     # space complexity: 7
     # ab *3+0
-    # abd *2+2
+    # -abd *2+2 (shorter than abdc)
     # abdc *2+0
     printResults('abdcadbcadad')
     # time complexity: 88
     # space complexity: 10
     # ad *4+0
-    # adc *2+2
+    # -adc *2+2 (shorter than bcad)
     # -abc *2+1 (dominated by adc)
     # bcad *2+0
     # bdad *2+0
     # -adad *2+0 (eliminated due to subcycle)
     printResults('abcacacabc')
     # ac *4+0
-    # abc *2+0
-    # aca *2+0
-    # cac *2+0
+    # -abc *2+0
+    # -aca *2+0
+    # -cac *2+0
     # -acac *2+0 (eliminated due to subcycle)
     # TODO: remove aca and cac because they are a subsequence of acac
     # but somehow keep abc
