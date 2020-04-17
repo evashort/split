@@ -24,21 +24,20 @@ def mlcs(sequence, minCycleCount=2):
             tuple(
                 (p, p + 1) for p in tokenPositions[token][1:]
             ), # cycleRanges
-        ): (
-            1, # pathLength
-            [
-                (
-                    len(sequence), # partialStart
-                    0 # partialLength
-                )
-            ], # partials
-            [
-                (
-                    (token, None), # path
-                    {len(sequence)}, # partialStart
-                )
-            ] # pathPartialStarts
-        ) \
+        ): [
+            (
+                0, # parentPathLength
+                [], # parentPartials
+                [
+                    (
+                        None, # parentPath
+                        set() # parentPartialStarts
+                    )
+                ], # parentPathPartialStarts
+                token,
+                len(sequence) # parentLastStop
+            )
+        ] \
             for token in tokenPositions
     }
     fringe = list(keyPaths)
@@ -47,69 +46,68 @@ def mlcs(sequence, minCycleCount=2):
     maxDAGLength = 1
     keysConsidered = 0
 
-    result = []
-    resultCycleCount = float('inf')
-    resultPathLength = 0
-    resultPartialLength = 0
+    stagingArea = []
+    lastPathLength = 0
     while fringe:
         maxDAGLength = max(maxDAGLength, len(fringe))
 
         key = heapq.heappop(fringe)
         cycleCount, firstStop, cycleRanges = key
         cycleCount = -cycleCount
-        pathLength, partials, pathPartialStarts = keyPaths.pop(key)
+        parentValues = keyPaths.pop(key)
+        maxParentPathLength = max(
+            parentValue[0] for parentValue in parentValues
+        )
+        partialMappings = []
+        for (
+            parentPathLength,
+            parentPartials,
+            parentPathPartialStarts,
+            token,
+            parentLastStart
+        ) in parentValues:
+            if parentPathLength < maxParentPathLength:
+                continue
 
-        if cycleCount < resultCycleCount:
-            yield from processResult(result, tokenPositions)
-            resultCycleCount = cycleCount
-            if result:
-                resultPathLength += 1
-                resultPartialLength = 0
-
-            result.clear()
-
-        if pathLength >= resultPathLength:
-            if pathLength > resultPathLength:
-                result.clear()
-                resultPathLength = pathLength
-                resultPartialLength = 0
-
-            nonOverlappingRanges = list(nonOverlapping(cycleRanges))
-            lastStop = nonOverlappingRanges[-1][1]
-            partialIndex = bisect.bisect_left(partials, (lastStop, 0))
-            partialStart, partialLength = partials[partialIndex]
-            if partialLength >= resultPartialLength:
-                if partialLength > resultPartialLength:
-                    result.clear()
-                    resultPartialLength = partialLength
-
-                allowedPartialStarts = {partialStart}
-                # add all later starts that have the same length
-                # (note that partials are ordered by increasing start
-                # which is equivalent to decreasing length)
-                for i in range(partialIndex + 1, len(partials)):
-                    partialStart, partialLength = partials[i]
-                    if partialLength < resultPartialLength:
-                        break
-
-                    allowedPartialStarts.add(partialStart)
-
-                result.extend(
-                    # len(partialStarts) will be 1 because the same path can't
-                    # have two partialStarts with the same partialLength
+            if cycleRanges[-1][0] < parentLastStart:
+                partials = [(parentLastStart, parentPathLength)] \
+                    + parentPartials
+                newPartialStarts = {parentLastStart}
+                pathPartialStarts = [
                     (
-                        path,
-                        firstStop,
-                        nonOverlappingRanges,
-                        *partialStarts
+                        (token, parentPath),
+                        parentPartialStarts.union(newPartialStarts)
                     ) \
-                        for path, partialStarts in filterPathPartialStarts(
-                            pathPartialStarts,
-                            allowedPartialStarts
-                        )
-                )
+                        for parentPath, parentPartialStarts \
+                            in parentPathPartialStarts
+                ]
+            else:
+                partials = parentPartials
+                pathPartialStarts = [
+                    ((token, parentPath), parentPartialStarts) \
+                        for parentPath, parentPartialStarts \
+                            in parentPathPartialStarts
+                ]
 
-        for childToken in tokenPositions:
+            partialMappings.append((partials, pathPartialStarts))
+
+        pathLength = maxParentPathLength + 1
+        partials, pathPartialStarts = mergePartialMappings(*partialMappings)
+        stagingArea.append(
+            (
+                firstStop,
+                cycleRanges,
+                pathLength,
+                partials,
+                pathPartialStarts
+            )
+        )
+
+        for childToken in getChildTokensWithSameCycleCount(
+            firstStop,
+            cycleRanges,
+            sequence
+        ):
             keysConsidered += 1
 
             childFirstStop, childCycleRanges = getChildCycleRanges(
@@ -118,60 +116,156 @@ def mlcs(sequence, minCycleCount=2):
                 tokenPositions[childToken]
             )
 
-            childCycleCount = 1 + sum(
-                1 for i in nonOverlapping(childCycleRanges)
-            )
-            if childCycleCount < minCycleCount:
-                continue
-
             childKey = (
-                -childCycleCount,
+                -cycleCount,
                 childFirstStop,
                 childCycleRanges
             )
-            otherPathLength = 0
-            try:
-                otherPathLength, otherPartials, otherPathPartialStarts \
-                    = keyPaths[childKey]
-            except KeyError:
+            otherValues = keyPaths.setdefault(childKey, [])
+            if not otherValues:
                 heapq.heappush(fringe, childKey)
 
-            childPathLength = pathLength + 1
-            if childPathLength < otherPathLength:
-                continue
-
-            # if lastStart is gone, it must have become partial
-            lastStart = cycleRanges[-1][0]
-            if childCycleRanges[-1][0] < lastStart:
-                childPartials = [(lastStart, pathLength)] + partials
-                newPartialStarts = {lastStart}
-                childPathPartialStarts = [
-                    (
-                        (childToken, path),
-                        partialStarts.union(newPartialStarts)
-                    ) \
-                        for path, partialStarts in pathPartialStarts
-                ]
-            else:
-                childPartials = partials
-                childPathPartialStarts = [
-                    ((childToken, path), partialStarts) \
-                        for path, partialStarts in pathPartialStarts
-                ]
-
-            if otherPathLength == childPathLength:
-                childPartials, childPathPartialStarts = mergePartialMappings(
-                    (childPartials, childPathPartialStarts),
-                    (otherPartials, otherPathPartialStarts)
+            otherValues.append(
+                (
+                    pathLength,
+                    partials,
+                    pathPartialStarts,
+                    childToken,
+                    cycleRanges[-1][0] # lastStart
                 )
-
-            keyPaths[childKey] = (
-                childPathLength,
-                childPartials,
-                childPathPartialStarts
             )
 
-    yield from processResult(result, tokenPositions)
+        if not fringe or -fringe[0][0] < cycleCount:
+            stagedPathLength = max(
+                (value[2] for value in stagingArea),
+                default=0
+            )
+            if stagedPathLength > lastPathLength:
+                resultCandidates = []
+                for (
+                    firstStop,
+                    cycleRanges,
+                    pathLength,
+                    partials,
+                    pathPartialStarts
+                ) in stagingArea:
+                    if pathLength < stagedPathLength:
+                        continue
+
+                    nonOverlappingRanges = list(
+                        nonOverlapping(cycleRanges)
+                    )
+                    lastStop = nonOverlappingRanges[-1][1]
+                    partialIndex = bisect.bisect_left(
+                        partials,
+                        (lastStop, 0)
+                    )
+                    _, partialLength = partials[partialIndex]
+                    resultCandidates.append(
+                        (
+                            partialLength,
+                            firstStop,
+                            nonOverlappingRanges,
+                            partials,
+                            partialIndex,
+                            pathPartialStarts
+                        )
+                    )
+
+                stagedPartialLength = max(
+                    candidate[0] for candidate in resultCandidates
+                )
+                for (
+                    partialLength,
+                    firstStop,
+                    nonOverlappingRanges,
+                    partials,
+                    partialIndex,
+                    pathPartialStarts
+                ) in resultCandidates:
+                    if partialLength < stagedPartialLength:
+                        continue
+
+                    allowedPartialStarts = set()
+                    # add all starts that have the same length
+                    # (note that partials are ordered by increasing start
+                    # which is equivalent to decreasing length)
+                    for i in range(partialIndex, len(partials)):
+                        partialStart, partialLength = partials[i]
+                        if partialLength < stagedPartialLength:
+                            break
+
+                        allowedPartialStarts.add(partialStart)
+
+                    for path, partialStarts in filterPathPartialStarts(
+                        pathPartialStarts,
+                        allowedPartialStarts
+                    ):
+                        path = unlinkList(path)
+                        if not hasSubcycle(path):
+                            yield getPathPositions(
+                                path,
+                                firstStop,
+                                nonOverlappingRanges,
+                                *partialStarts,
+                                tokenPositions
+                            )
+
+                lastPathLength = stagedPathLength
+
+            if cycleCount == minCycleCount:
+                stagingArea.clear()
+
+            for (
+                firstStop,
+                cycleRanges,
+                pathLength,
+                partials,
+                pathPartialStarts
+            ) in stagingArea:
+                alreadyDoneTokens = getChildTokensWithSameCycleCount(
+                    firstStop,
+                    cycleRanges,
+                    sequence
+                )
+                for childToken in tokenPositions:
+                    if childToken in alreadyDoneTokens:
+                        continue
+
+                    keysConsidered += 1
+
+                    childFirstStop, childCycleRanges = getChildCycleRanges(
+                        firstStop,
+                        cycleRanges,
+                        tokenPositions[childToken]
+                    )
+
+                    childCycleCount = 1 + sum(
+                        1 for i in nonOverlapping(childCycleRanges)
+                    )
+                    if childCycleCount < minCycleCount:
+                        continue
+
+                    childKey = (
+                        -childCycleCount,
+                        childFirstStop,
+                        childCycleRanges
+                    )
+                    otherValues = keyPaths.setdefault(childKey, [])
+                    if not otherValues:
+                        heapq.heappush(fringe, childKey)
+
+                    otherValues.append(
+                        (
+                            pathLength,
+                            partials,
+                            pathPartialStarts,
+                            childToken,
+                            cycleRanges[-1][0] # lastStart
+                        )
+                    )
+
+            stagingArea.clear()
 
     print(f'time complexity: {keysConsidered}')
     print(f'space complexity: {maxDAGLength}')
@@ -228,6 +322,30 @@ def filterPathPartialStarts(pathPartialStarts, allowedPartialStarts):
             ) \
                 if filteredPartialStarts
     )
+
+def getChildTokensWithSameCycleCount(firstStop, cycleRanges, sequence):
+    childTokens = None
+    for tokenList in getFrontierContents(firstStop, cycleRanges, sequence):
+        if childTokens is None:
+            childTokens = set(tokenList)
+        else:
+            childTokens.intersection_update(tokenList)
+
+        if not childTokens:
+            return childTokens
+
+    return childTokens
+
+def getFrontierContents(firstStop, cycleRanges, text):
+    frontierStart = firstStop
+    for frontierStop, nextFrontierStart in cycleRanges:
+        if frontierStop < frontierStart:
+            continue
+
+        yield text[frontierStart:frontierStop]
+        frontierStart = nextFrontierStart
+
+    yield text[frontierStart:]
 
 def getChildCycleRanges(firstStop, cycleRanges, tokenPositions):
     if firstStop > tokenPositions[-1]:
@@ -320,16 +438,14 @@ def chooseDecreasing(menus, firstChoice):
 
         yield (choice := choices[i])
 
-def processResult(result, tokenPositions):
-    for nestedPath, *rest in result:
-        path = []
-        while nestedPath is not None:
-            token, nestedPath = nestedPath
-            path.append(token)
+def unlinkList(linkedList):
+    result = []
+    while linkedList is not None:
+        item, linkedList = linkedList
+        result.append(item)
 
-        path.reverse()
-        if not hasSubcycle(path):
-            yield getPathPositions(path, *rest, tokenPositions)
+    result.reverse()
+    return result
 
 def hasSubcycle(sequence):
     for cycleLength in range(1, len(sequence) // 2 + 1):
@@ -342,12 +458,12 @@ def hasSubcycle(sequence):
 
     return False
 
-def printResults(input, sep='', indent='    '):
+def printResults(input, sep='', indent='    ', minCycleCount=2):
     if len(input) < 80:
         print()
         print(input)
 
-    results = mlcs(input)
+    results = mlcs(input, minCycleCount=minCycleCount)
     oldCycleCount = (0, 0)
     lastTime = time.time()
     for cycleLength, positions in results:
