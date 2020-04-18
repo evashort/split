@@ -17,15 +17,15 @@ if __name__ == '__main__':
     tokens = [
         token for i, token in preprocessor.tokenize(text)
     ]
-    for pathLength, positions in mlcs.mlcs(tokens):
-        cycleCount, partialLength = divmod(len(positions), pathLength)
-        print(''.join(tokens[p] for p in positions[:pathLength]))
+    for path, positions in mlcs.getBestRepeatedPaths(tokens):
+        cycleCount, partialLength = divmod(len(positions), len(path))
+        print(''.join(path))
         sequences = [
             [
                 tokens[positions[j] + 1 : positions[j + 1]] \
-                    for j in range(i, len(positions) - 1, pathLength)
+                    for j in range(i, len(positions) - 1, len(path))
             ] \
-                for i in range(pathLength)
+                for i in range(len(path))
         ]
         sequences = [
             sequence for sequence in sequences \
