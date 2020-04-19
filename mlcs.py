@@ -77,6 +77,10 @@ def hasSubcycle(sequence):
     return False
 
 def getAllRepeatedPaths(tokenPositions, sequence, minCycleCount=2):
+    alphabet = {
+        token for token, positions in tokenPositions.items() \
+            if len(positions) >= minCycleCount
+    }
     shapePaths = {None: [()]}
     fringe = [
         (
@@ -85,32 +89,33 @@ def getAllRepeatedPaths(tokenPositions, sequence, minCycleCount=2):
             None # shape
         )
     ]
-    lastGenerateLowerCycleCounts = False
     while fringe:
         key = heapq.heappop(fringe)
         cycleCount, generateLowerCycleCounts, shape = key
         cycleCount = -cycleCount
-        tailsWithSameCycleCount = getTailsWithSameCycleCount(shape, sequence)
-        if generateLowerCycleCounts:
-            if not lastGenerateLowerCycleCounts:
-                yield cycleCount - 1, (), ()
-
+        if generateLowerCycleCounts or cycleCount == minCycleCount:
             paths = shapePaths.pop(shape)
-            tails = set(tokenPositions)
-            tails.difference_update(tailsWithSameCycleCount)
         else:
             paths = shapePaths[shape]
+            if cycleCount > minCycleCount:
+                peerKey = (
+                    -cycleCount,
+                    True, # generateLowerCycleCounts
+                    shape
+                )
+                assert peerKey > key
+                heapq.heappush(fringe, peerKey)
+
+        if generateLowerCycleCounts:
+            yield cycleCount - 1, (), ()
+            tails = alphabet.difference(
+                getTailsWithSameCycleCount(shape, sequence)
+            )
+        else:
             for path in paths:
                 yield cycleCount, shape, path
 
-            tails = tailsWithSameCycleCount
-            peerKey = (
-                -cycleCount,
-                True, # generateLowerCycleCounts
-                shape
-            )
-            assert peerKey > key
-            heapq.heappush(fringe, peerKey)
+            tails = getTailsWithSameCycleCount(shape, sequence)
 
         childPathLength = len(paths[0]) + 1
         for tail in tails:
@@ -146,8 +151,6 @@ def getAllRepeatedPaths(tokenPositions, sequence, minCycleCount=2):
                     path + (tail,) \
                         for path in paths
                 )
-
-    lastGenerateLowerCycleCounts = generateLowerCycleCounts
 
 def chooseIncreasing(menus, start=0):
     choice = start - 1
