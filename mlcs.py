@@ -80,14 +80,12 @@ def getAllRepeatedPaths(tokenPositions, minCycleCount=2):
     fringe = [
         (
             -countNonOverlapping(shape), # cycleCount (negative)
-            -getWingspan(shape), # wingspan (negative)
+            shape[0][1], # firstStop
             shape
         ) \
             for shape in shapePaths
     ]
     heapq.heapify(fringe)
-    shapeHeads = {}
-    shapeTails = {}
     while fringe:
         key = heapq.heappop(fringe)
         cycleCount, _, shape = key
@@ -95,61 +93,37 @@ def getAllRepeatedPaths(tokenPositions, minCycleCount=2):
         paths = shapePaths.pop(shape)
         for path in paths:
             yield cycleCount, shape, path
-            prefixShape = getShape(
-                tokenPositions[token] for token in path[:-1]
-            )
-            suffixShape = getShape(
-                tokenPositions[token] for token in path[1:]
-            )
-            childPathsWithShapes = itertools.chain(
-                (
-                    (
-                        (head,) + path,
-                        addHead(shape, tokenPositions[head])
-                    ) \
-                        for head in shapeHeads.get(prefixShape, [])
-                ),
-                (
-                    (
-                        path + (tail,),
-                        addTail(shape, tokenPositions[tail])
-                    ) \
-                        for tail in shapeTails.get(suffixShape, [])
-                ),
-                [
-                    (
-                        path + (path[0],),
-                        addTail(shape, tokenPositions[path[0]])
-                    )
-                ] \
-                    if all(token == path[0] for token in path) \
-                        else []
-            )
-            for childPath, childShape in childPathsWithShapes:
-                childCycleCount = countNonOverlapping(childShape)
-                if childCycleCount < minCycleCount:
-                    continue
 
-                existingPaths = shapePaths.setdefault(childShape, [])
-                if existingPaths:
-                    existingPathLength = len(existingPaths[0])
-                    if len(childPath) > existingPathLength:
-                        existingPaths.clear()
+        childPathLength = len(paths[0]) + 1
+        for tail, tailPositions in tokenPositions.items():
+            childShape = addTail(shape, tailPositions)
+            if len(childShape) < minCycleCount:
+                continue
 
-                    if len(childPath) >= existingPathLength:
-                        existingPaths.append(childPath)
-                else:
-                    childKey = (
-                        -countNonOverlapping(childShape),
-                        -getWingspan(childShape),
-                        childShape
-                    )
-                    assert childKey > key
-                    heapq.heappush(fringe, childKey)
-                    existingPaths.append(childPath)
+            childCycleCount = countNonOverlapping(childShape)
+            if childCycleCount < minCycleCount:
+                continue
 
-            shapeTails.setdefault(prefixShape, set()).add(path[-1])
-            shapeHeads.setdefault(suffixShape, set()).add(path[0])
+            existingPaths = shapePaths.setdefault(childShape, [])
+            if existingPaths:
+                existingPathLength = len(existingPaths[0])
+                if childPathLength > existingPathLength:
+                    existingPaths.clear()
+            else:
+                childKey = (
+                    -childCycleCount,
+                    shape[0][1], # firstStop
+                    childShape
+                )
+                assert childKey > key
+                heapq.heappush(fringe, childKey)
+                existingPathLength = 0
+
+            if childPathLength >= existingPathLength:
+                existingPaths.extend(
+                    path + (tail,) \
+                        for path in paths
+                )
 
 def getCycleCount(path, tokenPositions):
     totalLength = sum(
@@ -172,14 +146,6 @@ def chooseIncreasing(menus, start=0):
             break
 
         yield choice
-
-def getWingspan(shape):
-    '''
-    wingspan = lastStart - firstStop
-    this quantity is useful because it is guaranteed to decrease every time a
-    new head or tail is added to shape
-    '''
-    return shape[-1][0] - shape[0][1]
 
 def countNonOverlapping(ranges):
     return sum(1 for _ in nonOverlapping(ranges))
