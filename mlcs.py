@@ -15,24 +15,27 @@ def getBestRepeatedPaths(sequence, minCycleCount=2):
         0, # pathLength
         0 # partialLength
     )
-    for cycleCount, partialLength, path in getAllRepeatedPaths(
+    for cycleCount, shape, path in getAllRepeatedPaths(
         tokenPositions,
         minCycleCount=minCycleCount
     ):
         if cycleCount < resultCycleCount:
-            for oldPath in result:
-                if not hasSubcycle(oldPath):
-                    yield oldPath, list(
-                        getPathPositions(oldPath, tokenPositions)
-                    )
+            if result:
+                resultScore = (
+                    resultScore[0] + 1, # pathLength
+                    0 # partialLength
+                )
 
+            yield from processResult(result, tokenPositions)
             result.clear()
             resultCycleCount = cycleCount
-            resultScore = (
-                resultScore[0] + 1, # pathLength
-                0 # partialLength
-            )
 
+        partialLength = sum(
+            1 for _ in chooseIncreasing(
+                (tokenPositions[token] for token in path),
+                start=shape[-1][1] # lastStop
+            )
+        )
         score = (len(path), partialLength)
         if score >= resultScore:
             if score > resultScore:
@@ -41,79 +44,18 @@ def getBestRepeatedPaths(sequence, minCycleCount=2):
 
             result.append(path)
 
-    for path in result:
+    yield from processResult(result, tokenPositions)
+
+def processResult(paths, tokenPositions):
+    for path in paths:
         if not hasSubcycle(path):
             yield path, list(
-                getPathPositions(path, tokenPositions)
-            )
-
-def getAllRepeatedPaths(tokenPositions, minCycleCount=2):
-    fringe = [
-        (
-            -len(positions), # cycleCount (negative)
-            1, # pathLength
-            0, # partialLength
-            (token,) # path
-        ) \
-            for token, positions in tokenPositions.items()
-    ]
-    heapq.heapify(fringe)
-    bodyHeads = {}
-    bodyTails = {}
-    while fringe:
-        key = heapq.heappop(fringe)
-        cycleCount, _, partialLength, path = key
-        cycleCount = -cycleCount
-        yield cycleCount, partialLength, path
-        prefix, suffix = path[:-1], path[1:]
-        childPaths = itertools.chain(
-            (
-                (head,) + path for head in bodyHeads.get(prefix, [])
-            ),
-            (
-                path + (tail,) for tail in bodyTails.get(suffix, [])
-            ),
-            [path + (path[0],)] \
-                if all(token == path[0] for token in suffix) \
-                    else []
-        )
-        for childPath in childPaths:
-            childCycleCount, childPartialLength = getCycleCount(
-                childPath,
-                tokenPositions
-            )
-            if childCycleCount >= minCycleCount:
-                childKey = (
-                    -childCycleCount,
-                    len(childPath),
-                    childPartialLength,
-                    childPath
+                chooseIncreasing(
+                    itertools.cycle(
+                        tokenPositions[token] for token in path
+                    )
                 )
-                assert childKey > key
-                heapq.heappush(fringe, childKey)
-
-        bodyTails.setdefault(prefix, []).append(path[-1])
-        bodyHeads.setdefault(suffix, []).append(path[0])
-
-def getCycleCount(path, tokenPositions):
-    totalLength = sum(
-        1 for _ in getPathPositions(path, tokenPositions)
-    )
-    return divmod(totalLength, len(path))
-
-def getPathPositions(path, tokenPositions):
-    position = -1
-    for token in itertools.cycle(path):
-        positionIndex = bisect.bisect_left(
-            tokenPositions[token],
-            position + 1
-        )
-        try:
-            position = tokenPositions[token][positionIndex]
-        except IndexError:
-            break
-
-        yield position
+            )
 
 def hasSubcycle(sequence):
     for cycleLength in range(1, len(sequence) // 2 + 1):
@@ -129,6 +71,247 @@ def hasSubcycle(sequence):
             return True
 
     return False
+
+def getAllRepeatedPaths(tokenPositions, minCycleCount=2):
+    shapePaths = {
+        getShape([positions]): [(token,)] \
+            for token, positions in tokenPositions.items()
+    }
+    fringe = [
+        (
+            -countNonOverlapping(shape), # cycleCount (negative)
+            -getWingspan(shape), # wingspan (negative)
+            shape
+        ) \
+            for shape in shapePaths
+    ]
+    heapq.heapify(fringe)
+    shapeHeads = {}
+    shapeTails = {}
+    while fringe:
+        key = heapq.heappop(fringe)
+        cycleCount, _, shape = key
+        cycleCount = -cycleCount
+        paths = shapePaths.pop(shape)
+        for path in paths:
+            yield cycleCount, shape, path
+            prefixShape = getShape(
+                tokenPositions[token] for token in path[:-1]
+            )
+            suffixShape = getShape(
+                tokenPositions[token] for token in path[1:]
+            )
+            childPathsWithShapes = itertools.chain(
+                (
+                    (
+                        (head,) + path,
+                        addHead(shape, tokenPositions[head])
+                    ) \
+                        for head in shapeHeads.get(prefixShape, [])
+                ),
+                (
+                    (
+                        path + (tail,),
+                        addTail(shape, tokenPositions[tail])
+                    ) \
+                        for tail in shapeTails.get(suffixShape, [])
+                ),
+                [
+                    (
+                        path + (path[0],),
+                        addTail(shape, tokenPositions[path[0]])
+                    )
+                ] \
+                    if all(token == path[0] for token in path) \
+                        else []
+            )
+            for childPath, childShape in childPathsWithShapes:
+                childCycleCount = countNonOverlapping(childShape)
+                if childCycleCount < minCycleCount:
+                    continue
+
+                existingPaths = shapePaths.setdefault(childShape, [])
+                if existingPaths:
+                    existingPathLength = len(existingPaths[0])
+                    if len(childPath) > existingPathLength:
+                        existingPaths.clear()
+
+                    if len(childPath) >= existingPathLength:
+                        existingPaths.append(childPath)
+                else:
+                    childKey = (
+                        -countNonOverlapping(childShape),
+                        -getWingspan(childShape),
+                        childShape
+                    )
+                    assert childKey > key
+                    heapq.heappush(fringe, childKey)
+                    existingPaths.append(childPath)
+
+            shapeTails.setdefault(prefixShape, set()).add(path[-1])
+            shapeHeads.setdefault(suffixShape, set()).add(path[0])
+
+def getCycleCount(path, tokenPositions):
+    totalLength = sum(
+        1 for _ in chooseIncreasing(
+            path,
+            itertools.cycle(
+                tokenPositions[token] for token in path
+            )
+        )
+    )
+    return divmod(totalLength, len(path))
+
+def chooseIncreasing(menus, start=0):
+    choice = start - 1
+    for menu in menus:
+        choiceIndex = bisect.bisect_left(menu, choice + 1)
+        try:
+            choice = menu[choiceIndex]
+        except IndexError:
+            break
+
+        yield choice
+
+def getWingspan(shape):
+    '''
+    wingspan = lastStart - firstStop
+    this quantity is useful because it is guaranteed to decrease every time a
+    new head or tail is added to shape
+    '''
+    return shape[-1][0] - shape[0][1]
+
+def countNonOverlapping(ranges):
+    return sum(1 for _ in nonOverlapping(ranges))
+
+def nonOverlapping(ranges):
+    lastStop = float('-inf') # pylint: disable=unused-variable
+    return (
+        (start, lastStop := stop)
+            for start, stop in ranges \
+                if start >= lastStop
+    )
+
+def getShape(menus):
+    shape = None
+    for menu in menus:
+        if shape is None:
+            shape = tuple(
+                (position, position + 1) for position in menu
+            )
+        else:
+            shape = addTail(shape, menu)
+
+        if not shape:
+            break
+
+    return shape
+
+def addHead(ranges, positions):
+    ranges = iter(ranges)
+    positions = iter(positions)
+    # positionIndex = -1
+    lastPosition = -1
+    result = []
+    while True:
+        for start, stop in ranges:
+            if start > lastPosition:
+                break
+        else:
+            break
+
+        for position in positions:
+            if position >= start:
+                break
+
+            lastPosition = position
+        else:
+            if lastPosition >= 0:
+                result.append((lastPosition, stop))
+
+            break
+
+        if lastPosition >= 0:
+            result.append((lastPosition, stop))
+
+        lastPosition = position
+        # positionIndex = bisect.bisect_left(
+        #     positions,
+        #     start,
+        #     lo=positionIndex + 1
+        # )
+        # if positionIndex > 0:
+        #     lastPosition = positions[positionIndex - 1]
+
+        # if lastPosition >= 0:
+        #     result.append((lastPosition, stop))
+
+        # try:
+        #     lastPosition = positions[positionIndex]
+        # except IndexError:
+        #     break
+
+    return tuple(result)
+
+assert addHead(
+    ((1, 3), (3, 5), (4, 6)),
+    [0, 1, 2, 10]
+) == \
+    ((0, 3), (2, 5))
+
+assert addHead(((1, 3),), [0]) == ((0, 3),)
+
+assert addHead(((1, 3),), [1]) == ()
+
+def addTail(ranges, positions):
+    ranges = iter(ranges)
+    positions = iter(positions)
+    # positionIndex = -1
+    lastStop = -1
+    result = []
+    while True:
+        for position in positions:
+            if position >= lastStop:
+                break
+        else:
+            break
+        # positionIndex = bisect.bisect_left(
+        #     positions,
+        #     lastStop,
+        #     lo=positionIndex + 1
+        # )
+        # try:
+        #     position = positions[positionIndex]
+        # except IndexError:
+        #     break
+
+        for start, stop in ranges:
+            if stop > position:
+                break
+
+            lastStart, lastStop = start, stop
+        else:
+            if lastStop >= 0:
+                result.append((lastStart, position + 1))
+
+            break
+
+        if lastStop >= 0:
+            result.append((lastStart, position + 1))
+
+        lastStart, lastStop = start, stop
+
+    return tuple(result)
+
+assert addTail(
+    ((1, 3), (2, 4), (4, 6)),
+    [4, 5, 6, 10]
+) == \
+    ((2, 5), (4, 7))
+
+assert addTail(((1, 3),), [3]) == ((1, 4),)
+
+assert addTail(((1, 3),), [2]) == ()
 
 def printResults(input, sep='', indent='    ', minCycleCount=2):
     if len(input) < 80:
