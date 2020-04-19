@@ -97,14 +97,13 @@ def getAllRepeatedPaths(tokenPositions, sequence, minCycleCount=2):
             paths = shapePaths.pop(shape)
         else:
             paths = shapePaths[shape]
-            if cycleCount > minCycleCount:
-                peerKey = (
-                    -cycleCount,
-                    True, # generateLowerCycleCounts
-                    shape
-                )
-                assert peerKey > key
-                heapq.heappush(fringe, peerKey)
+            peerKey = (
+                -cycleCount,
+                True, # generateLowerCycleCounts
+                shape
+            )
+            assert peerKey > key
+            heapq.heappush(fringe, peerKey)
 
         if generateLowerCycleCounts:
             yield cycleCount - 1, (), ()
