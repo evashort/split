@@ -210,7 +210,6 @@ def getShape(menus):
 def addHead(ranges, positions):
     ranges = iter(ranges)
     positions = iter(positions)
-    # positionIndex = -1
     lastPosition = -1
     result = []
     while True:
@@ -235,21 +234,6 @@ def addHead(ranges, positions):
             result.append((lastPosition, stop))
 
         lastPosition = position
-        # positionIndex = bisect.bisect_left(
-        #     positions,
-        #     start,
-        #     lo=positionIndex + 1
-        # )
-        # if positionIndex > 0:
-        #     lastPosition = positions[positionIndex - 1]
-
-        # if lastPosition >= 0:
-        #     result.append((lastPosition, stop))
-
-        # try:
-        #     lastPosition = positions[positionIndex]
-        # except IndexError:
-        #     break
 
     return tuple(result)
 
@@ -266,7 +250,6 @@ assert addHead(((1, 3),), [1]) == ()
 def addTail(ranges, positions):
     ranges = iter(ranges)
     positions = iter(positions)
-    # positionIndex = -1
     lastStop = -1
     result = []
     while True:
@@ -275,15 +258,6 @@ def addTail(ranges, positions):
                 break
         else:
             break
-        # positionIndex = bisect.bisect_left(
-        #     positions,
-        #     lastStop,
-        #     lo=positionIndex + 1
-        # )
-        # try:
-        #     position = positions[positionIndex]
-        # except IndexError:
-        #     break
 
         for start, stop in ranges:
             if stop > position:
