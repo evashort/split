@@ -80,7 +80,6 @@ def getAllRepeatedPaths(tokenPositions, minCycleCount=2):
     fringe = [
         (
             -countNonOverlapping(shape), # cycleCount (negative)
-            shape[0][1], # firstStop
             shape
         ) \
             for shape in shapePaths
@@ -88,7 +87,7 @@ def getAllRepeatedPaths(tokenPositions, minCycleCount=2):
     heapq.heapify(fringe)
     while fringe:
         key = heapq.heappop(fringe)
-        cycleCount, _, shape = key
+        cycleCount, shape = key
         cycleCount = -cycleCount
         paths = shapePaths.pop(shape)
         for path in paths:
@@ -112,7 +111,6 @@ def getAllRepeatedPaths(tokenPositions, minCycleCount=2):
             else:
                 childKey = (
                     -childCycleCount,
-                    shape[0][1], # firstStop
                     childShape
                 )
                 assert childKey > key
@@ -162,9 +160,14 @@ def getShape(menus):
     shape = None
     for menu in menus:
         if shape is None:
-            shape = tuple(
+            ranges = (
                 (position, position + 1) for position in menu
             )
+            for _, firstStop in ranges:
+                shape = ((0, firstStop), *ranges)
+                break
+            else:
+                shape = ()
         else:
             shape = addTail(shape, menu)
 
@@ -173,51 +176,27 @@ def getShape(menus):
 
     return shape
 
-def addHead(ranges, positions):
-    ranges = iter(ranges)
-    positions = iter(positions)
-    lastPosition = -1
-    result = []
-    while True:
-        for start, stop in ranges:
-            if start > lastPosition:
-                break
-        else:
-            break
-
-        for position in positions:
-            if position >= start:
-                break
-
-            lastPosition = position
-        else:
-            if lastPosition >= 0:
-                result.append((lastPosition, stop))
-
-            break
-
-        if lastPosition >= 0:
-            result.append((lastPosition, stop))
-
-        lastPosition = position
-
-    return tuple(result)
-
-assert addHead(
-    ((1, 3), (3, 5), (4, 6)),
-    [0, 1, 2, 10]
-) == \
-    ((0, 3), (2, 5))
-
-assert addHead(((1, 3),), [0]) == ((0, 3),)
-
-assert addHead(((1, 3),), [1]) == ()
-
 def addTail(ranges, positions):
     ranges = iter(ranges)
     positions = iter(positions)
-    lastStop = -1
-    result = []
+    for lastStart, lastStop in ranges:
+        break
+    else:
+        return ()
+
+    for position in positions:
+        if position >= lastStop:
+            break
+    else:
+        return ()
+
+    result = [(lastStart, position + 1)]
+    for lastStart, lastStop in ranges:
+        if lastStart > position:
+            break
+    else:
+        return tuple(result)
+
     while True:
         for position in positions:
             if position >= lastStop:
@@ -231,14 +210,10 @@ def addTail(ranges, positions):
 
             lastStart, lastStop = start, stop
         else:
-            if lastStop >= 0:
-                result.append((lastStart, position + 1))
-
+            result.append((lastStart, position + 1))
             break
 
-        if lastStop >= 0:
-            result.append((lastStart, position + 1))
-
+        result.append((lastStart, position + 1))
         lastStart, lastStop = start, stop
 
     return tuple(result)
@@ -247,11 +222,16 @@ assert addTail(
     ((1, 3), (2, 4), (4, 6)),
     [4, 5, 6, 10]
 ) == \
-    ((2, 5), (4, 7))
-
+    ((1, 5),)
+assert addTail(
+    ((0, 0), (1, 3), (2, 4), (4, 6)),
+    [0, 4, 5, 6, 10]
+) == \
+    ((0, 1), (2, 5), (4, 7))
 assert addTail(((1, 3),), [3]) == ((1, 4),)
-
+assert addTail(((0, 0), (1, 3),), [0, 3]) == ((0, 1), (1, 4))
 assert addTail(((1, 3),), [2]) == ()
+assert addTail(((0, 0), (1, 3),), [0, 2]) == ((0, 1),)
 
 def printResults(input, sep='', indent='    ', minCycleCount=2):
     if len(input) < 80:
