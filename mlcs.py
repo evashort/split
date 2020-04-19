@@ -77,11 +77,14 @@ def hasSubcycle(sequence):
     return False
 
 def getAllRepeatedPaths(tokenPositions, sequence, minCycleCount=2):
-    alphabet = {
-        token for token, positions in tokenPositions.items() \
-            if len(positions) >= minCycleCount
-    }
+    sortedTokenPositions = [
+        (token, positions) \
+            for token, positions in tokenPositions.items() \
+                if len(positions) >= minCycleCount
+    ]
+    sortedTokenPositions.sort(key=lambda item: len(item[1]), reverse=True)
     shapePaths = {None: [()]}
+    usedShapeTails = {}
     fringe = [
         (
             -(len(sequence) + 1), # cycleCount (negative)
@@ -97,30 +100,29 @@ def getAllRepeatedPaths(tokenPositions, sequence, minCycleCount=2):
             paths = shapePaths.pop(shape)
         else:
             paths = shapePaths[shape]
-            if cycleCount > minCycleCount:
-                peerKey = (
-                    -cycleCount,
-                    True, # generateLowerCycleCounts
-                    shape
-                )
-                assert peerKey > key
-                heapq.heappush(fringe, peerKey)
+            peerKey = (
+                -cycleCount,
+                True, # generateLowerCycleCounts
+                shape
+            )
+            assert peerKey > key
+            heapq.heappush(fringe, peerKey)
+            usedTails = usedShapeTails.setdefault(shape, [])
 
         if generateLowerCycleCounts:
             yield cycleCount - 1, (), ()
-            tails = alphabet.difference(
-                getTailsWithSameCycleCount(shape, sequence)
-            )
+            usedTails = usedShapeTails.pop(shape)
         else:
             for path in paths:
                 yield cycleCount, shape, path
 
-            tails = getTailsWithSameCycleCount(shape, sequence)
-
         childPathLength = len(paths[0]) + 1
-        for tail in tails:
-            childShape = addTail(shape, tokenPositions[tail])
+        for tail, tailPositions in sortedTokenPositions:
             if generateLowerCycleCounts:
+                if tail in usedTails:
+                    continue
+
+                childShape = addTail(shape, tailPositions)
                 if len(childShape) < minCycleCount:
                     continue
 
@@ -128,7 +130,19 @@ def getAllRepeatedPaths(tokenPositions, sequence, minCycleCount=2):
                 if childCycleCount < minCycleCount:
                     continue
             else:
-                childCycleCount = cycleCount
+                if len(tailPositions) < cycleCount:
+                    break
+
+                childShape = addTail(shape, tailPositions)
+                if len(childShape) < cycleCount:
+                    continue
+
+                childCycleCount = countNonOverlapping(childShape)
+                if childCycleCount < cycleCount:
+                    continue
+
+                if cycleCount > minCycleCount:
+                    usedTails.append(tail)
 
             existingPaths = shapePaths.setdefault(childShape, [])
             if existingPaths:
@@ -141,8 +155,7 @@ def getAllRepeatedPaths(tokenPositions, sequence, minCycleCount=2):
                     False, # generateLowerCycleCounts
                     childShape
                 )
-                # TODO: fix the bug and uncomment this assertion
-                # assert childKey > key
+                assert childKey > key
                 heapq.heappush(fringe, childKey)
                 existingPathLength = 0
 
@@ -173,38 +186,6 @@ def nonOverlapping(ranges):
             for start, stop in ranges \
                 if start >= lastStop
     )
-
-def getTailsWithSameCycleCount(shape, sequence):
-    if shape is None:
-        return set()
-
-    # if shape == ((0, 13), (14, 22), (16, 24), (19, 26), (21, 29), (23, 31), (25, 33), (28, 35), (30, 38), (32, 40), (34, 44), (37, 46), (39, 59), (43, 61), (45, 63), (58, 66), (60, 75), (62, 77), (65, 79), (74, 81), (76, 84), (78, 86), (80, 88), (83, 90), (85, 93), (87, 95), (89, 99), (92, 101), (94, 114), (98, 116), (100, 118), (113, 121), (115, 130), (117, 132), (120, 134), (129, 136), (131, 139), (133, 141), (135, 143), (138, 145), (140, 148), (142, 150), (144, 152), (147, 154), (149, 157), (151, 159), (153, 163), (156, 165), (158, 178), (162, 180), (164, 182), (177, 185), (179, 194), (181, 196), (184, 198), (193, 200), (195, 203), (197, 205), (199, 207), (202, 209), (204, 212), (206, 214), (208, 216), (211, 218), (213, 221), (215, 223), (217, 227), (220, 229), (222, 242), (226, 244), (228, 246), (241, 249), (243, 258), (245, 260), (248, 262), (257, 264), (259, 267), (261, 269), (263, 271), (266, 273), (268, 276), (270, 278), (272, 280), (275, 282), (277, 285), (279, 287), (281, 291), (284, 293), (286, 306), (290, 308), (292, 310), (305, 313), (307, 322), (309, 324), (312, 326), (321, 328), (323, 331), (325, 333), (327, 335), (330, 337), (332, 340), (334, 342), (336, 344), (339, 346), (341, 349), (343, 351), (345, 355), (348, 357), (350, 370), (354, 372), (356, 374), (369, 377)):
-    #     print("this shape produces {':'} but it should produce {':', '↵'}")
-
-    ranges = nonOverlapping(shape)
-    result = set()
-    for _, lastStop in ranges:
-        break
-    else:
-        return result
-
-    for start, stop in ranges:
-        if result:
-            result.intersection_update(sequence[lastStop:start])
-        else:
-            result.update(sequence[lastStop:start])
-
-        if not result:
-            return result
-
-        lastStop = stop
-
-    if result:
-        result.intersection_update(sequence[lastStop:])
-    else:
-        result.update(sequence[lastStop:])
-
-    return result
 
 def addTail(ranges, positions):
     if ranges is None:
