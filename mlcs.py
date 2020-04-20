@@ -82,6 +82,17 @@ def hasSubcycle(sequence):
 
     return False
 
+def chooseIncreasing(menus, start=0):
+    choice = start - 1
+    for menu in menus:
+        choiceIndex = bisect.bisect_left(menu, choice + 1)
+        try:
+            choice = menu[choiceIndex]
+        except IndexError:
+            break
+
+        yield choice
+
 def getAllRepeatedPaths(tokenPositions, sequence, minCycleCount=2):
     shapePaths = {None: [()]}
     fringe = [
@@ -127,17 +138,6 @@ def getAllRepeatedPaths(tokenPositions, sequence, minCycleCount=2):
                     path + (tail,) \
                         for path in paths
                 )
-
-def chooseIncreasing(menus, start=0):
-    choice = start - 1
-    for menu in menus:
-        choiceIndex = bisect.bisect_left(menu, choice + 1)
-        try:
-            choice = menu[choiceIndex]
-        except IndexError:
-            break
-
-        yield choice
 
 def countNonOverlapping(ranges):
     lastStop = 0
