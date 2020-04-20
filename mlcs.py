@@ -97,13 +97,14 @@ def getAllRepeatedPaths(tokenPositions, sequence, minCycleCount=2):
     shapePaths = {None: [()]}
     fringe = [
         (
+            0, # minWidth
             -(len(sequence) + 1), # cycleCount (negative)
             None # shape
         )
     ]
     while fringe:
         key = heapq.heappop(fringe)
-        cycleCount, shape = key
+        _, cycleCount, shape = key
         cycleCount = -cycleCount
         paths = shapePaths.pop(shape)
         for path in paths:
@@ -125,7 +126,11 @@ def getAllRepeatedPaths(tokenPositions, sequence, minCycleCount=2):
                 if childPathLength > existingPathLength:
                     existingPaths.clear()
             else:
+                childMinWidth = min(
+                    stop - start for start, stop in childShape[1:]
+                )
                 childKey = (
+                    childMinWidth,
                     -childCycleCount,
                     childShape
                 )
