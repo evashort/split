@@ -53,7 +53,7 @@ PathInfo<T> RepeatedPathGenerator<T>::next() {
         = tokenPositions.cbegin();
     for (; tailIter != tokenPositions.cend(); tailIter++) {
         T tail = tailIter->first;
-        vector<int> tailPositions = tailIter->second;
+        const vector<int> &tailPositions = tailIter->second;
         vector<Range> childShape = addTail(key.shape, tailPositions);
         if (childShape.size() < minCycleCount) {
             continue;
@@ -62,7 +62,7 @@ PathInfo<T> RepeatedPathGenerator<T>::next() {
         if (childCycleCount < minCycleCount) {
             continue;
         }
-        vector<vector<T> > childPaths = shapePaths[childShape];
+        vector<vector<T> > &childPaths = shapePaths[childShape];
         int existingPathLength = 0;
         if (childPaths.empty()) {
             Key childKey({
@@ -85,7 +85,6 @@ PathInfo<T> RepeatedPathGenerator<T>::next() {
                 childPath.push_back(tail);
                 childPaths.push_back(childPath);
             }
-            shapePaths[childShape] = childPaths;
         }
     }
     if (fringe.empty()) {
