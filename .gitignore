@@ -4,3 +4,4 @@ emsdk_set_env.sh
 src/*.html
 src/*.js
 src/*.wasm
+.vscode

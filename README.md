@@ -44,11 +44,13 @@ source ./emsdk_env.sh
 emsdk activate latest
 emsdk_env.bat
 ```
+Note: I tried to do this from Git Bash and `emsdk_env.bat` somehow failed to
+update my `$PATH` variable so I had to use Command Prompt instead.
 
 ### Compiling
 Run this from the `src` folder in this repo:
 ```bash
-emcc hello.c -s WASM=1 -o hello.html
+emcc main.cpp bestRepeatedPaths.cpp repeatedPaths.cpp -s WASM=1 -o main.html
 ```
 
 ### Running
