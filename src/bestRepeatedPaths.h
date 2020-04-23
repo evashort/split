@@ -1,6 +1,7 @@
 #ifndef BESTREPEATEDPATHS_H
 #define BESTREPEATEDPATHS_H
 
+#include <string>
 #include <vector>
 
 #include "repeatedPaths.h"

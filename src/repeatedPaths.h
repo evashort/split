@@ -3,6 +3,7 @@
 
 #include <queue>
 #include <map>
+#include <string>
 #include <vector>
 
 struct Range {

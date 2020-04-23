@@ -71,8 +71,15 @@ git pull
 ### Compiling
 Run this from the `src` folder in this repo:
 ```bash
-emcc main.cpp bestRepeatedPaths.cpp repeatedPaths.cpp -s WASM=1 -o main.html
+emcc main.cpp bestRepeatedPaths.cpp repeatedPaths.cpp preprocessor.cpp -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -o main.html
 ```
+
+#### Compiling to Windows executable
+Run this from the MS Build Tools Developer Command Prompt
+```cmd
+cl main.cpp bestRepeatedPaths.cpp repeatedPaths.cpp preprocessor.cpp /EHsc /O2
+```
+You will have to comment out the assert in [src/repeatedPaths.cpp](src/repeatedPaths.cpp)
 
 ### Running
 If you open the generated `.html` file directly, it will not be able to load

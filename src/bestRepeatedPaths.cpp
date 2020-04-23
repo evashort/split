@@ -91,6 +91,7 @@ vector<RepeatedPath<T> > BestRepeatedPathGenerator<T>::next(int ticks) {
 
 // https://stackoverflow.com/a/495056
 template class BestRepeatedPathGenerator<char>;
+template class BestRepeatedPathGenerator<string>;
 
 template<class T>
 map<T, vector<int> > getTokenPositions(

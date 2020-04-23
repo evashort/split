@@ -3,4 +3,6 @@ __pycache__
 src/*.html
 src/*.js
 src/*.wasm
+src/*.exe
+src/*.obj
 .vscode

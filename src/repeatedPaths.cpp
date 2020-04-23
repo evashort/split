@@ -109,6 +109,7 @@ PathInfo<T> RepeatedPathGenerator<T>::next() {
 
 // https://stackoverflow.com/a/495056
 template class RepeatedPathGenerator<char>;
+template class RepeatedPathGenerator<string>;
 
 int countNonOverlapping(const vector<Range> &ranges) {
     int result = 0;
