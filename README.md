@@ -85,7 +85,7 @@ Then run this command from the `src` folder in this repo:
 python3 -m http.server
 ```
 
-Finally, navigate to [localhost:8000](localhost:8000) in your browser
+Finally, navigate to localhost:8000 in your browser
 and click the link to open the generated `.html` file.
 
 ### Development
