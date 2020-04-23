@@ -6,3 +6,4 @@ src/*.wasm
 src/*.exe
 src/*.obj
 .vscode
+images
