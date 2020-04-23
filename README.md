@@ -17,35 +17,56 @@ Run this wherever your git repos normally live:
 git clone https://github.com/emscripten-core/emsdk.git
 cd emsdk
 ./emsdk install latest
+./emsdk activate latest
+source ./emsdk_env.sh
 ```
-Note: You will have to omit the `./` if running from Windows Command Prompt
+`emsdk_env.sh` needs to be run via the `source` command as shown in order
+for the changes to persist after the script exits. Confusingly, the
+`emsdk activate` command also claims to be setting the same environment
+variables but the changes don't persist after it exits.
 
-Note: Make sure `python3` is pointing to the right Python executable
-before running the install command. For me, `python` was pointing to the right
-executable but `python3` was pointing to some internal Windows Python
-installation.
+Note: When I first ran the install command, it failed with an error about not
+being able to access `python3`. I ran
+```bash
+which python3
+```
+and saw that it referred to a Python installation in a Windows system folder.
+I fixed the error by copying `python.exe` and renaming it to `python3.exe`
+
+### Future terminal sessions
+You will have to re-run this command
+```bash
+source ./emsdk_env.sh
+```
+at the beginning of every terminal session before you can build the code.
+`emsdk` provides a command to set the environment permanently but I wouldn't
+recommend it because it overrides the locations of `python`, `java`,
+and `npm`.
+
+Instead, I recommend editing `~/.bashrc` to create an alias like this:
+```bash
+alias emsdk_env='source ~/git/emsdk/emsdk_env.sh'
+```
+
+Note: I use [Git Bash](https://gitforwindows.org/) on Windows, and after
+creating `~/.bashrc` I got a warning that `.bashrc` was found but
+`.bash_profile` was not. Fortunately, Git Bash automatically created
+`~/.bash_profile` and the warning did not reappear.
+
+### Building on Windows
+The [Emscripten docs](https://emscripten.org/docs/getting_started/downloads.html)
+point out that the setup commands can be run from Command Prompt or Powershell
+on Windows with some slight modifications. Personally I use
+[Git Bash](https://gitforwindows.org/) on Windows which allows me to run the
+Unix commands as-is.
 
 ### Keeping emsdk up to date
 Run this from the root of the `emsdk` repo:
 ```bash
 git pull
 ./emsdk install latest
-```
-
-### Environment setup (once per terminal session)
-Run this from the root of the `emsdk` repo:
-#### Unix
-```bash
 ./emsdk activate latest
-source ./emsdk_env.sh
 ```
-#### Windows
-```bat
-emsdk activate latest
-emsdk_env.bat
-```
-Note: I tried to do this from Git Bash and `emsdk_env.bat` somehow failed to
-update my `$PATH` variable so I had to use Command Prompt instead.
 
 ### Compiling
 Run this from the `src` folder in this repo:

@@ -1,6 +1,5 @@
 __pycache__
 *.pyc
-emsdk_set_env.sh
 src/*.html
 src/*.js
 src/*.wasm
