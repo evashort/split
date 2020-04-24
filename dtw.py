@@ -19,24 +19,25 @@ for testCase in [
     tokens = np.frombuffer(text, dtype=np.byte)
     costs = np.full(
         (len(tokens), len(tokens)),
-        len(tokens),
-        dtype=int
+        float('inf')
     )
     costs[:, 0] = 0
     for y in range(1, len(tokens)):
         for x in range(y):
-            costs[y, x + 1] = (
-                tokens[x] != tokens[y]
-            ) + min(
+            costs[y, x + 1] = min(
                 costs[y, x],
                 costs[y - 1, x + 1],
                 costs[y - 1, x]
+            ) + (
+                tokens[x] != tokens[y]
+            ) / (
+                x - y + len(tokens)
             )
 
     result = np.zeros((len(tokens), len(tokens)), dtype=np.uint8)
 
     y = len(tokens) - 1
-    x = len(tokens) - 200 + np.argmin(costs[-1, -200:]) - 1
+    x = np.argmin(costs[-1, 1:])
     while x > 0:
         result[y, x] = 255
         if costs[y, x] <= costs[y - 1, x + 1]:
