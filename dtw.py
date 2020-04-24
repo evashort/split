@@ -22,6 +22,7 @@ for testCase in [
         float('inf')
     )
     costs[:, 0] = 0
+    offsetMultipliers = np.exp(0.003 * np.arange(len(tokens)))
     for y in range(1, len(tokens)):
         for x in range(y):
             costs[y, x + 1] = min(
@@ -32,7 +33,7 @@ for testCase in [
                 tokens[x] != tokens[y]
             ) / (
                 x - y + len(tokens)
-            )
+            ) * offsetMultipliers[y - x]
 
     result = np.zeros((len(tokens), len(tokens)), dtype=np.uint8)
 
