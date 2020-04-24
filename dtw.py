@@ -21,7 +21,7 @@ for testCase in [
         len(tokens),
         dtype=int
     )
-    costs[0, 0] = 0
+    costs[:, 0] = 0
     for y in range(1, len(tokens)):
         for x in range(y):
             costs[y, x + 1] = (
@@ -36,7 +36,7 @@ for testCase in [
 
     y = len(tokens) - 1
     x = len(tokens) - 2
-    while x > 0 or y > 1:
+    while x > 0:
         result[y, x] = 255
         if costs[y, x] <= costs[y - 1, x + 1]:
             if costs[y - 1, x] <= costs[y, x]:
