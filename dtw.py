@@ -12,6 +12,7 @@ for testCase in [
     'RSVPAgent.log',
     'colors2.json'
 ]:
+    print(testCase)
     with open(testCaseFolder / testCase, 'rb') as f:
         text = f.read(5000)
 
