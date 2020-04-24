@@ -36,7 +36,7 @@ for testCase in [
     result = np.zeros((len(tokens), len(tokens)), dtype=np.uint8)
 
     y = len(tokens) - 1
-    x = len(tokens) - 2
+    x = len(tokens) - 200 + np.argmin(costs[-1, -200:]) - 1
     while x > 0:
         result[y, x] = 255
         if costs[y, x] <= costs[y - 1, x + 1]:
