@@ -2,6 +2,7 @@ import bisect
 import numpy as np
 from imageio import imwrite
 from pathlib import Path
+import time
 
 testCaseFolder = Path('testcases')
 imageFolder = Path('images')
@@ -18,6 +19,7 @@ for testCase in [
         text = f.read(5000)
 
     tokens = np.frombuffer(text, dtype=np.byte)
+    startTime = time.time()
     tokenPositions = {}
     for position in reversed(range(len(tokens))):
         tokenPositions.setdefault(tokens[position], []).append(position)
@@ -71,6 +73,8 @@ for testCase in [
         path.append((x, y))
 
     path.reverse()
+    duration = time.time() - startTime
+    print(f'{testCase} took {duration:.2f}s')
 
     result = np.zeros((len(tokens), len(tokens), 3), dtype=np.uint8)
     for x, y in path:
