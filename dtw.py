@@ -3,6 +3,7 @@ import numpy as np
 from imageio import imwrite
 from pathlib import Path
 import time
+import yFinderLib
 
 testCaseFolder = Path('testcases')
 imageFolder = Path('images')
@@ -20,50 +21,21 @@ for testCase in [
 
     tokens = np.frombuffer(text, dtype=np.byte)
     startTime = time.time()
-    tokenPositions = {}
-    for position in reversed(range(len(tokens))):
-        tokenPositions.setdefault(tokens[position], []).append(position)
+    yFinder = yFinderLib.YFinder(tokens)
 
-    usedYCounts = [0 for _ in tokens]
-
-    rank = 1
     planes = []
-    for token in tokens:
-        outerPositions = tokenPositions[token]
-        outerX = outerPositions.pop()
-        for outerYIndex in range(usedYCounts[outerX], len(outerPositions)):
-            outerY = outerPositions[-1 - outerYIndex]
-            x = outerX
-            y = outerY
-            planes.extend([] for i in range(len(planes), rank))
-            planes[rank - 1].append((x, y))
-            x += 1
+    for outerX, token in enumerate(tokens):
+        while yFinder.hasY(outerX):
+            plane = []
+            x, y = outerX, len(tokens)
             while x < y:
-                positions = tokenPositions[tokens[x]]
-                for xIndex in range(0, len(positions)):
-                    if positions[-1 - xIndex] == x:
-                        break
-                else:
-                    raise RuntimeError(
-                        f'position {x} missing from' \
-                            f' tokenPositions[{tokens[x]}]'
-                    )
-
-                usedYCount = usedYCounts[x]
-                if xIndex + 1 + usedYCount >= len(positions):
-                    x += 1
-                    continue
-
-                newY = positions[-1 - xIndex - 1 - usedYCount]
-                if newY < y:
-                    y = newY
-                    planes.extend([] for i in range(len(planes), rank))
-                    planes[rank - 1].append((x, y))
-                    usedYCounts[x] += 1
+                if yFinder.hasY(x) and yFinder.peekY(x) < y:
+                    y = yFinder.popY(x)
+                    plane.append((x, y))
 
                 x += 1
 
-            rank += 1
+            planes.append(plane)
 
     path = []
     x, y = 0, 0
