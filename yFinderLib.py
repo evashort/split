@@ -4,6 +4,11 @@ class YFinder:
         for position, token in enumerate(tokens):
             tokenPositions.setdefault(token, []).append(position)
 
+        self.maxOffset = max(
+            positions[-1] - positions[0] \
+                for positions in tokenPositions.values()
+        )
+
         yCount = len(tokens) - len(tokenPositions)
         self.yIndices = [0] * len(tokens)
         self.allYs = [] # length = yCount
