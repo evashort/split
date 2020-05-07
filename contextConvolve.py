@@ -34,24 +34,30 @@ def getTokenWeights(tokens, decayRatio=0.6, minWeight=0.01):
 
     return tokenWeights
 
-def multiplyScores(
-    tokens,
-    scores,
-    tokenWeights,
-    decayRatio=0.6,
-    initialScore=1
-):
-    score = initialScore
-    for i, token in enumerate(tokens):
-        scores[i] *= score
-        score *= decayRatio
-        score += tokenWeights.get(token, 0)
+def smear(swatches, decayRatio=0.6, initialBlend=1):
+    blend = initialBlend
+    for swatch in swatches:
+        yield blend
+        blend += swatch
+        blend *= decayRatio
 
 beforeWeights = getTokenWeights(tokens[selectionStart - 1::-1])
 afterWeights = getTokenWeights(tokens[selectionStop:])
-scores = np.ones_like(tokens, dtype=float)
-multiplyScores(tokens, scores, beforeWeights)
-multiplyScores(tokens[::-1], scores[::-1], afterWeights)
+beforeScores = np.fromiter(
+    smear(
+        beforeWeights.get(token, 0) for token in tokens
+    ),
+    dtype=float,
+    count=len(tokens)
+)
+afterScores = np.fromiter(
+    smear(
+        afterWeights.get(token, 0) for token in tokens[::-1]
+    ),
+    dtype=float,
+    count=len(tokens)
+)[::-1]
+scores = beforeScores * afterScores
 plt.bar(nonSequenceIndices, scores[nonSequenceIndices])
 plt.bar(sequenceIndices, scores[sequenceIndices])
 plt.show()
