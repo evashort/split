@@ -67,7 +67,7 @@ def getScores(
 
     return scores
 
-def getLocalMaxima(sequence, minRatio=0.999):
+def getPeaks(sequence, minRatio=0.999):
     try:
         valleyHeight = sequence[0]
     except ValueError:
@@ -97,14 +97,14 @@ def getLocalMaxima(sequence, minRatio=0.999):
             if sequence[peakStart - 1] < peakHeight * minRatio:
                 break
 
-        yield peakStart, i, peakHeight
+        yield peakHeight, peakStart, i
 
-assert list(getLocalMaxima(
+assert list(getPeaks(
     [8, 10, 8, 1, 8, 10, 8, 4, 5, 4, 5, 6, 5, 4, 10],
     #0  1   2  3  4  5   6  7  8  9  10 11 12 13 14
     minRatio=0.8
 )) \
-    == [(4, 7, 10), (10, 13, 6)]
+    == [(10, 4, 7), (6, 10, 13)]
 
 startTime = time.time()
 beforeScores = getScores(tokens, selectionStart - 1)
@@ -112,6 +112,10 @@ afterScores = getScores(tokens[::-1], len(tokens) - 1 - selectionStop)[::-1]
 scores = beforeScores * afterScores
 duration = time.time() - startTime
 print(f'getting scores took {duration:.2f}s')
+peaks = sorted(getPeaks(scores), reverse=True)
+for score, peakStart, peakStop in peaks:
+    print(score, text[peakStart + 1 : peakStop - 1].decode('utf-8'))
+
 plt.bar(nonSequenceIndices, scores[nonSequenceIndices])
 plt.bar(sequenceIndices, scores[sequenceIndices])
 plt.show()
