@@ -1,6 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
-import suffix_tree
+import time
 
 with open('./testcases/colors.json', 'rb') as f:
     text = f.read()
@@ -31,43 +31,45 @@ def smear(swatches, decayRatio=0.6, initialBlend=1):
         blend += swatch
         blend *= decayRatio
 
-def getPositions(children, textLength):
-    if children:
-        for child in children.values():
-            for stop in getPositions(child.children, textLength):
-                yield stop - len(child.text)
-    else:
-        yield textLength
+def getScores(tokens, end, decayRatio=0.9, minWeight=0.05):
+    tokenPositions = {}
+    for position, token in enumerate(tokens):
+        tokenPositions.setdefault(token, []).append(position)
 
-def getScores(tokens, start, decayRatio=0.6, minWeight=0.01):
     scores = np.zeros(len(tokens))
-    weight = 1
-    root = suffix_tree.makeSuffixTree(tokens)
-    for pathStart in range(start, len(tokens)):
-        node = root
-        pathLength = 0
-        while node.children:
-            token = tokens[pathStart + pathLength]
-            node = node.children[token]
-            pathLength += len(node.text)
+    maxOffset = int(np.log(minWeight) / np.log(decayRatio))
+    for offset in range(maxOffset, -1, -1):
+        weight = decayRatio ** offset
+        assert weight >= minWeight
+        token = tokens[end - offset]
+        starts = tokenPositions[token]
+        for i, start in enumerate(starts):
+            try:
+                stop = starts[i + 1]
+            except IndexError:
+                stop = len(tokens)
 
-            for position in getPositions(node.children, len(text)):
-                scores[position - pathLength] += weight * pathLength
+            blend = scores[start] + weight
+            for x in range(start, stop):
+                if blend < scores[x] + minWeight:
+                    break
 
-        weight *= decayRatio
-        if weight < minWeight:
-            break
+                scores[x] = blend
+                blend *= decayRatio
 
-    scores = np.fromiter(
-        smear(scores[::-1], decayRatio=decayRatio),
+
+    return np.fromiter(
+        smear(scores, decayRatio=decayRatio),
         dtype=float,
-        count=len(text)
+        count=len(scores)
     )
-    return scores[::-1]
 
-beforeScores = getScores(tokens[::-1], len(tokens) - selectionStart)[::-1]
-afterScores = getScores(tokens, selectionStop)
+startTime = time.time()
+beforeScores = getScores(tokens, selectionStart - 1)
+afterScores = getScores(tokens[::-1], len(tokens) - 1 - selectionStop)[::-1]
 scores = beforeScores * afterScores
+duration = time.time() - startTime
+print(f'getting scores took {duration:.2f}s')
 plt.bar(nonSequenceIndices, scores[nonSequenceIndices])
 plt.bar(sequenceIndices, scores[sequenceIndices])
 plt.show()
