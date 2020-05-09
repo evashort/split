@@ -67,6 +67,45 @@ def getScores(
 
     return scores
 
+def getLocalMaxima(sequence, minRatio=0.999):
+    try:
+        valleyHeight = sequence[0]
+    except ValueError:
+        return
+
+    i = 0
+    while True:
+        for i in range(i + 1, len(sequence)):
+            if sequence[i] * minRatio > valleyHeight:
+                peakHeight = sequence[i]
+                break
+
+            valleyHeight = min(valleyHeight, sequence[i])
+        else:
+            break
+
+        for i in range(i + 1, len(sequence)):
+            if sequence[i] < peakHeight * minRatio:
+                valleyHeight = sequence[i]
+                break
+
+            peakHeight = max(peakHeight, sequence[i])
+        else:
+            break
+
+        for peakStart in range(i - 1, 0, -1):
+            if sequence[peakStart - 1] < peakHeight * minRatio:
+                break
+
+        yield peakStart, i, peakHeight
+
+assert list(getLocalMaxima(
+    [8, 10, 8, 1, 8, 10, 8, 4, 5, 4, 5, 6, 5, 4, 10],
+    #0  1   2  3  4  5   6  7  8  9  10 11 12 13 14
+    minRatio=0.8
+)) \
+    == [(4, 7, 10), (10, 13, 6)]
+
 startTime = time.time()
 beforeScores = getScores(tokens, selectionStart - 1)
 afterScores = getScores(tokens[::-1], len(tokens) - 1 - selectionStop)[::-1]
