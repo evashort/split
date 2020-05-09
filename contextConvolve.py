@@ -24,13 +24,6 @@ selectionStop = selectionStart + len(selectedText)
 
 tokens = np.frombuffer(text, dtype=np.byte)
 
-def maxSmear(swatches, decayRatio=0.6, initialBlend=0):
-    blend = initialBlend
-    for swatch in swatches:
-        yield blend
-        blend = max(blend, swatch)
-        blend *= decayRatio
-
 def getScores(
     tokens,
     end,
@@ -63,11 +56,16 @@ def getScores(
                 scores[x] = blend
                 blend *= decayRatio
 
-    return np.fromiter(
-        maxSmear(scores, decayRatio=smearDecayRatio),
-        dtype=float,
-        count=len(scores)
-    )
+    blend = 0
+    for i, score in enumerate(scores):
+        if score > blend:
+            blend = score
+        else:
+            scores[i] = blend
+
+        blend *= smearDecayRatio
+
+    return scores
 
 startTime = time.time()
 beforeScores = getScores(tokens, selectionStart - 1)
