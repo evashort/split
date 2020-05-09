@@ -8,7 +8,7 @@ with open('./testcases/colors.json', 'rb') as f:
 def rangeFromStartAndLength(start, length):
     return range(start, start + length)
 
-sequence = [b'black', b'white', b'red', b'blue', b'yellow', b'green']
+sequence = [b'black', b'white', b'red', b'blue', b'yellowisabeautifulbrightcolor', b'green']
 sequenceIndices = [
     i \
         for item in sequence \
