@@ -24,14 +24,20 @@ selectionStop = selectionStart + len(selectedText)
 
 tokens = np.frombuffer(text, dtype=np.byte)
 
-def smear(swatches, decayRatio=0.6, initialBlend=1):
+def maxSmear(swatches, decayRatio=0.6, initialBlend=0):
     blend = initialBlend
     for swatch in swatches:
         yield blend
-        blend += swatch
+        blend = max(blend, swatch)
         blend *= decayRatio
 
-def getScores(tokens, end, decayRatio=0.9, minWeight=0.05):
+def getScores(
+    tokens,
+    end,
+    decayRatio=0.9,
+    minWeight=0.05,
+    smearDecayRatio=0.999
+):
     tokenPositions = {}
     for position, token in enumerate(tokens):
         tokenPositions.setdefault(token, []).append(position)
@@ -57,9 +63,8 @@ def getScores(tokens, end, decayRatio=0.9, minWeight=0.05):
                 scores[x] = blend
                 blend *= decayRatio
 
-
     return np.fromiter(
-        smear(scores, decayRatio=decayRatio),
+        maxSmear(scores, decayRatio=smearDecayRatio),
         dtype=float,
         count=len(scores)
     )
