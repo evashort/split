@@ -111,11 +111,11 @@ beforeScores = getScores(tokens, selectionStart - 1)
 afterScores = getScores(tokens[::-1], len(tokens) - 1 - selectionStop)[::-1]
 scores = beforeScores * afterScores
 duration = time.time() - startTime
-print(f'getting scores took {duration:.2f}s')
-peaks = sorted(getPeaks(scores), reverse=True)
+peaks = sorted(getPeaks(scores))
 for score, peakStart, peakStop in peaks:
     print(score, text[peakStart + 1 : peakStop - 1].decode('utf-8'))
 
+print(f'getting scores took {duration:.2f}s')
 plt.bar(nonSequenceIndices, scores[nonSequenceIndices])
 plt.bar(sequenceIndices, scores[sequenceIndices])
 plt.show()
