@@ -2,13 +2,13 @@ import numpy as np
 from matplotlib import pyplot as plt
 import time
 
-with open('./testcases/WhoisRIR.java', 'rb') as f:
+with open('./testcases/colors.json', 'rb') as f:
     text = f.read()
 
 def rangeFromStartAndLength(start, length):
     return range(start, start + length)
 
-sequence = [b'ARIN', b'RIPE', b'APNIC', b'AFRINIC', b'LACNIC', b'JPNIC', b'KRNIC', b'CNNIC', b'UNKNOWN']
+sequence = [b'black', b'white', b'red', b'blue', b'yellow', b'green']
 sequenceIndices = [
     i \
         for item in sequence \
@@ -18,7 +18,7 @@ nonSequenceIndices = [
     i for i in range(len(text)) if i not in sequenceIndices
 ]
 
-selectedText = b'JPNIC'
+selectedText = b'black'
 selectionStart = text.index(selectedText)
 selectionStop = selectionStart + len(selectedText)
 
@@ -29,7 +29,7 @@ def getScores(
     end,
     decayRatio=0.9,
     minWeight=0.05,
-    smearDecayRatio=0.9
+    smearDecayRatio=0.95
 ):
     tokenPositions = {}
     for position, token in enumerate(tokens):
