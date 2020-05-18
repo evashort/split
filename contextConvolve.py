@@ -1,5 +1,5 @@
+import collections
 import numpy as np
-from matplotlib import pyplot as plt
 import time
 
 with open('./testcases/colors.json', 'rb') as f:
@@ -56,15 +56,6 @@ def getScores(
                 scores[x] = blend
                 blend *= decayRatio
 
-    blend = 0
-    for i, score in enumerate(scores):
-        if score > blend:
-            blend = score
-        else:
-            scores[i] = blend
-
-        blend *= smearDecayRatio
-
     return scores
 
 def getPeaks(sequence, minRatio=0.999):
@@ -109,13 +100,28 @@ assert list(getPeaks(
 startTime = time.time()
 beforeScores = getScores(tokens, selectionStart - 1)
 afterScores = getScores(tokens[::-1], len(tokens) - 1 - selectionStop)[::-1]
-scores = beforeScores * afterScores
-duration = time.time() - startTime
-peaks = sorted(getPeaks(scores))
-for score, peakStart, peakStop in peaks:
-    print(score, text[peakStart + 1 : peakStop - 1].decode('utf-8'))
 
-print(f'getting scores took {duration:.2f}s')
-plt.bar(nonSequenceIndices, scores[nonSequenceIndices])
-plt.bar(sequenceIndices, scores[sequenceIndices])
-plt.show()
+decayRatio = 0.9
+maxOffset = 29
+weightAfterTokens = collections.Counter()
+peaks = list(getPeaks(beforeScores))
+for peakHeight, _, peakStop in peaks:
+    weight = peakHeight
+    # https://en.wikipedia.org/wiki/Geometric_series#Formula
+    remainingWeight = peakHeight / (1 - decayRatio)
+    tokenCounts = collections.Counter()
+    for offset in range(maxOffset + 1):
+        token = tokens[peakStop - 1 - offset]
+        ordinal = tokenCounts[token]
+        tokenCounts[token] += 1
+        remainingWeight -= weight
+        weightAfterTokens[(token, ordinal)] += remainingWeight
+        weight *= decayRatio
+
+beforeString = str(bytes(
+    byte for (byte, ordinal), weight in sorted(
+        weightAfterTokens.items(),
+        key=lambda item: item[1]
+    )
+))
+print(beforeString)
