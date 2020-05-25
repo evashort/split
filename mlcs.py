@@ -109,16 +109,26 @@ def getAllRepeatedPaths(tokenPositions, sequence, minCycleCount=2):
         for path in paths:
             yield cycleCount, shape, path
 
-        childPathLength = len(paths[0]) + 1
-        for tail, tailPositions in tokenPositions.items():
+        for tailPositions in tokenPositions.values():
             childShape = addTail(shape, tailPositions)
             if len(childShape) < minCycleCount:
                 continue
 
-            childCycleCount = countNonOverlapping(childShape)
+            childCycleCount, minGap = countNonOverlapping(childShape)
             if childCycleCount < minCycleCount:
                 continue
 
+            slide = getSlide(
+                childShape,
+                sequence,
+                maxSlideLength=minGap
+            )
+            childShape = tuple(
+                (start, stop + len(slide) - 1) \
+                    for start, stop in childShape
+            )
+
+            childPathLength = len(paths[0]) + len(slide)
             existingPaths = shapePaths.setdefault(childShape, [])
             if existingPaths:
                 existingPathLength = len(existingPaths[0])
@@ -135,19 +145,33 @@ def getAllRepeatedPaths(tokenPositions, sequence, minCycleCount=2):
 
             if childPathLength >= existingPathLength:
                 existingPaths.extend(
-                    path + (tail,) \
+                    path + slide \
                         for path in paths
                 )
 
 def countNonOverlapping(ranges):
-    lastStop = 0
-    result = 0
-    for start, stop in ranges:
-        if start >= lastStop:
-            result += 1
-            lastStop = stop
+    columnStopIndex = 0
+    columnStopStop = 0
+    rangeCount = 0
+    minGap = float('inf')
+    minGaps = [1234] * len(ranges)
+    for i, (start, stop) in enumerate(ranges):
+        if start >= columnStopStop:
+            columnStartIndex = columnStopIndex
+            columnStopIndex = i
+            columnStopStop = stop
+            rangeCount += 1
 
-    return result
+        minGap = max(
+            (
+                min(minGaps[j], start - ranges[j][1]) \
+                    for j in range(columnStartIndex, columnStopIndex)
+            ),
+            default=float('inf')
+        )
+        minGaps[i] = minGap
+
+    return rangeCount, minGap
 
 def addTail(ranges, positions):
     if ranges is None:
@@ -214,6 +238,29 @@ assert addTail(((1, 3),), [3]) == ((1, 4),)
 assert addTail(((0, 0), (1, 3),), [0, 3]) == ((0, 1), (1, 4))
 assert addTail(((1, 3),), [2]) == ()
 assert addTail(((0, 0), (1, 3),), [0, 2]) == ((0, 1),)
+
+def getSlide(shape, sequence, maxSlideLength=float('inf')):
+    maxSlideLength = min(
+        maxSlideLength,
+        len(sequence) - shape[-1][1]
+    )
+    firstStop = shape[0][1]
+    slideLength = 0
+    for slideLength in range(maxSlideLength):
+        token = sequence[firstStop + slideLength]
+        if all(
+            sequence[stop + slideLength] == token \
+                for _, stop in shape
+        ):
+            # make sure slideLength gets incremented after the last
+            # iteration, like it would in a C++ for loop
+            slideLength += 1
+        else:
+            break
+
+    return tuple(
+        sequence[firstStop - 1 : firstStop + slideLength]
+    )
 
 def printResults(input, sep='', indent='    ', minCycleCount=2):
     if len(input) < 80:
